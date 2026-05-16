@@ -1,0 +1,500 @@
+name: Desktop Build and Release
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          # macOS: Use Intel runner for x64, Apple Silicon runner for arm64
+          # CRITICAL: macos-15-intel is x86_64, macos-15 is Apple Silicon (arm64)
+          - os: macos-15-intel # Intel (x86_64) runner for x64 builds
+            platform: mac
+            arch: x64
+          - os: macos-15 # Apple Silicon (arm64) runner for arm64 builds
+            platform: mac
+            arch: arm64
+          - os: windows-latest
+            platform: win
+            arch: x64
+          - os: windows-latest
+            platform: win
+            arch: arm64
+          - os: ubuntu-latest
+            platform: linux
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          # Only use arm64 Node on macOS arm64 runners. Windows/Linux runners are x64.
+          # 仅在 macOS arm64 runner 上使用 arm64 Node，Windows/Linux runner 都是 x64
+          architecture: ${{ matrix.platform == 'mac' && matrix.arch == 'arm64' && 'arm64' || 'x64' }}
+
+      - name: Check Environment Architecture
+        shell: bash
+        run: |
+          echo "System Architecture (uname -m): $(uname -m)"
+          echo "Node Architecture (process.arch): $(node -p 'process.arch')"
+          # Only enforce arch match on macOS where we have dedicated runners
+          if [ "${{ matrix.platform }}" = "mac" ] && [ "${{ matrix.arch }}" = "arm64" ] && [ "$(node -p 'process.arch')" != "arm64" ]; then
+            echo "ERROR: Node.js is not arm64 on macOS arm64 runner!"
+            exit 1
+          fi
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          # 显式使用与 package.json 中一致的 pnpm 版本
+          version: 9.15.0
+          run_install: false
+
+      - name: Get pnpm store directory
+        id: pnpm-cache
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_OUTPUT
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+          key: ${{ runner.os }}-${{ matrix.arch || 'default' }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ matrix.arch || 'default' }}-pnpm-store-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Pack standalone CLI tarball
+        if: matrix.platform == 'linux'
+        shell: bash
+        run: |
+          pnpm pack:cli
+          CLI_TARBALL=$(find apps/cli -maxdepth 1 -name "prompthub-cli-*.tgz" | head -n 1)
+          if [ -z "$CLI_TARBALL" ]; then
+            echo "CLI tarball was not generated"
+            exit 1
+          fi
+          mkdir -p apps/desktop/upload_dist
+          cp "$CLI_TARBALL" apps/desktop/upload_dist/
+
+      - name: Clean previous build artifacts
+        shell: bash
+        working-directory: apps/desktop
+        run: |
+          rm -rf dist || true
+
+      - name: Build for ${{ matrix.platform }} ${{ matrix.arch }}
+        shell: bash
+        working-directory: apps/desktop
+        run: |
+          if [ -n "${{ matrix.arch }}" ]; then
+            # Build specific architecture (Windows or macOS with arch specified)
+            # 构建特定架构（Windows 或指定了 arch 的 macOS）
+            if [ "${{ matrix.platform }}" = "win" ]; then
+              pnpm vite build && pnpm electron-builder --win --${{ matrix.arch }} --publish never
+            elif [ "${{ matrix.platform }}" = "mac" ]; then
+              pnpm vite build && pnpm electron-builder --mac --${{ matrix.arch }} --publish never
+            fi
+          else
+            pnpm electron:build:${{ matrix.platform }}
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verify macOS app architecture
+        if: matrix.platform == 'mac' && matrix.arch != ''
+        shell: bash
+        working-directory: apps/desktop
+        run: |
+          ZIP_FILE=$(find dist -maxdepth 1 -name "PromptHub-*-${{ matrix.arch }}.zip" | head -n 1)
+          if [ -z "$ZIP_FILE" ]; then
+            echo "Expected macOS ZIP artifact not found for ${{ matrix.arch }}"
+            exit 1
+          fi
+
+          TMP_DIR=$(mktemp -d)
+          ditto -x -k "$ZIP_FILE" "$TMP_DIR/app"
+          APP_BIN=$(find "$TMP_DIR/app" -path "*/PromptHub.app/Contents/MacOS/PromptHub" | head -n 1)
+          if [ -z "$APP_BIN" ]; then
+            echo "PromptHub.app binary not found inside $ZIP_FILE"
+            exit 1
+          fi
+
+          ACTUAL_ARCHS=$(lipo -archs "$APP_BIN")
+          echo "Detected macOS binary archs: $ACTUAL_ARCHS"
+          if [ "${{ matrix.arch }}" = "x64" ] && [ "$ACTUAL_ARCHS" != "x86_64" ]; then
+            echo "Expected x86_64 binary, got: $ACTUAL_ARCHS"
+            exit 1
+          fi
+          if [ "${{ matrix.arch }}" = "arm64" ] && [ "$ACTUAL_ARCHS" != "arm64" ]; then
+            echo "Expected arm64 binary, got: $ACTUAL_ARCHS"
+            exit 1
+          fi
+
+      # NSIS installer executables expose the bootstrap PE header instead of the packaged app
+      # architecture, so installer-level PE checks report false mismatches on Windows builds.
+
+      - name: Normalize Windows update metadata
+        if: matrix.platform == 'win' && matrix.arch != ''
+        shell: bash
+        working-directory: apps/desktop
+        run: |
+          # Generate appropriate yml files for each architecture
+          # 为每个架构生成适当的 yml 文件
+          if [ "${{ matrix.arch }}" = "arm64" ]; then
+            if [ -f "dist/latest.yml" ]; then
+              node scripts/fix-latest-yml.js --file dist/latest.yml --arch arm64
+              # Rename to latest-arm64.yml for arm64 builds
+              mv dist/latest.yml dist/latest-arm64.yml
+              echo "Renamed latest.yml to latest-arm64.yml for ARM64"
+            fi
+          else
+            # x64: Generate latest-x64.yml for backward compatibility with older versions
+            # x64: 生成 latest-x64.yml 以兼容旧版本
+            # electron-builder already generates correct filenames via artifactName
+            # electron-builder 已通过 artifactName 配置生成正确的文件名
+            if [ -f "dist/latest.yml" ]; then
+              node scripts/fix-latest-yml.js --file dist/latest.yml --arch x64
+              # Create latest-x64.yml as a copy for backward compatibility with old versions
+              # 创建 latest-x64.yml 副本以兼容旧版本
+              cp dist/latest.yml dist/latest-x64.yml
+              echo "Created latest-x64.yml for backward compatibility"
+            fi
+          fi
+          # Remove duplicate NSIS blockmap without arch (prevents release upload errors)
+          shopt -s nullglob
+          for file in dist/*.exe.blockmap; do
+            case "$file" in
+              *-x64.exe.blockmap|*-arm64.exe.blockmap) ;;
+              *) rm -f "$file" ;;
+            esac
+          done
+
+      - name: Normalize macOS update metadata
+        if: matrix.platform == 'mac' && matrix.arch != ''
+        shell: bash
+        working-directory: apps/desktop
+        run: |
+          # Keep x64 latest-mac.yml as the canonical filename for backward compatibility.
+          # ARM64 manifest is stored separately and merged in the release job.
+          # 保留 x64 latest-mac.yml 作为兼容旧客户端的标准文件名。
+          # ARM64 manifest 单独保存，稍后在 release job 中合并。
+          if [ -f "dist/latest-mac.yml" ]; then
+            if [ "${{ matrix.arch }}" = "arm64" ]; then
+              mv dist/latest-mac.yml dist/latest-mac-arm64.yml
+              echo "Saved ARM64 manifest as latest-mac-arm64.yml"
+            else
+              # x64 remains latest-mac.yml; also keep an explicit alias for debugging.
+              # x64 继续保留 latest-mac.yml，同时生成一个显式别名便于调试。
+              cp dist/latest-mac.yml dist/latest-mac-x64.yml
+              echo "Created latest-mac-x64.yml alias"
+            fi
+          fi
+
+      - name: Remove debug files
+        shell: bash
+        working-directory: apps/desktop
+        run: |
+          # 删除 builder-debug.yml
+          find dist -name "builder-debug.yml" -delete || true
+
+      - name: Prepare upload bundle
+        shell: bash
+        working-directory: apps/desktop
+        run: |
+          VERSION="$(node -p "require('./package.json').version")"
+          mkdir -p upload_dist
+
+          copy_if_exists() {
+            local file="$1"
+            if [ -f "$file" ]; then
+              cp "$file" upload_dist/
+            else
+              echo "Expected build output not found: $file"
+              exit 1
+            fi
+          }
+
+          if [ "${{ matrix.platform }}" = "mac" ]; then
+            copy_if_exists "dist/PromptHub-${VERSION}-${{ matrix.arch }}.dmg"
+            copy_if_exists "dist/PromptHub-${VERSION}-${{ matrix.arch }}.dmg.blockmap"
+            copy_if_exists "dist/PromptHub-${VERSION}-${{ matrix.arch }}.zip"
+            copy_if_exists "dist/PromptHub-${VERSION}-${{ matrix.arch }}.zip.blockmap"
+
+            if [ "${{ matrix.arch }}" = "arm64" ]; then
+              copy_if_exists "dist/latest-mac-arm64.yml"
+            else
+              copy_if_exists "dist/latest-mac.yml"
+              copy_if_exists "dist/latest-mac-x64.yml"
+            fi
+          elif [ "${{ matrix.platform }}" = "win" ]; then
+            copy_if_exists "dist/PromptHub-Setup-${VERSION}-${{ matrix.arch }}.exe"
+
+            if [ "${{ matrix.arch }}" = "arm64" ]; then
+              copy_if_exists "dist/latest-arm64.yml"
+            else
+              copy_if_exists "dist/latest.yml"
+              copy_if_exists "dist/latest-x64.yml"
+            fi
+          else
+            copy_if_exists "dist/PromptHub-${VERSION}-x64.AppImage"
+            copy_if_exists "dist/PromptHub-${VERSION}-amd64.deb"
+            copy_if_exists "dist/latest-linux.yml"
+            copy_if_exists "upload_dist/prompthub-cli-${VERSION}.tgz"
+          fi
+
+          echo "Prepared upload bundle:"
+          ls -1 upload_dist/
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.platform }}-${{ matrix.arch || 'default' }}-build
+          path: apps/desktop/upload_dist/*
+          if-no-files-found: ignore
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Set release version
+        shell: bash
+        run: |
+          echo "VERSION=$(node -p "require('./apps/desktop/package.json').version")" >> "$GITHUB_ENV"
+          echo "RELEASE_TAG=${GITHUB_REF_NAME}" >> "$GITHUB_ENV"
+          if [[ "${GITHUB_REF_NAME}" == *-* ]]; then
+            echo "IS_PRERELEASE=true" >> "$GITHUB_ENV"
+            echo "DOWNLOAD_BASE_URL=https://github.com/legeling/PromptHub/releases/download/${GITHUB_REF_NAME}" >> "$GITHUB_ENV"
+            echo "PREVIEW_RELEASE_URL=https://github.com/legeling/PromptHub/releases/tag/${GITHUB_REF_NAME}" >> "$GITHUB_ENV"
+          else
+            echo "IS_PRERELEASE=false" >> "$GITHUB_ENV"
+            echo "DOWNLOAD_BASE_URL=https://github.com/legeling/PromptHub/releases/latest/download" >> "$GITHUB_ENV"
+            echo "PREVIEW_RELEASE_URL=https://github.com/legeling/PromptHub/releases?q=prerelease%3Atrue" >> "$GITHUB_ENV"
+          fi
+
+      - name: List artifacts for debugging
+        shell: bash
+        run: |
+          echo "=== Artifact structure ==="
+          find artifacts -type f -name "*.yml" -o -name "*.exe" -o -name "*.dmg" | head -50
+
+      - name: Create Release with gh CLI
+        shell: bash
+        run: |
+          if [ "$IS_PRERELEASE" = "true" ]; then
+            PREVIEW_NOTE='> 本次发布带 semver prerelease 后缀，下载链接固定到当前 tag。稳定通道默认不会自动切换到 prerelease 版本；如需测试，请在应用内启用预览通道或手动下载当前 tag。'
+          else
+            PREVIEW_NOTE='> 预览构建发布在 GitHub Prereleases；应用内启用预览更新通道后会检查 prerelease 构建。'
+          fi
+
+          # 1. Prepare Release Notes
+          cat > release_notes.md <<EOF
+          ## 📦 下载安装
+
+          | 平台 | 下载 |
+          |------|------|
+          | Windows | [![Windows x64](https://img.shields.io/badge/Windows_x64-0078D6?style=for-the-badge&logo=windows&logoColor=white)](${DOWNLOAD_BASE_URL}/PromptHub-Setup-${VERSION}-x64.exe) [![Windows arm64](https://img.shields.io/badge/Windows_arm64-0078D6?style=for-the-badge&logo=windows&logoColor=white)](${DOWNLOAD_BASE_URL}/PromptHub-Setup-${VERSION}-arm64.exe) |
+          | macOS | [![macOS Apple Silicon](https://img.shields.io/badge/macOS_Apple_Silicon-000000?style=for-the-badge&logo=apple&logoColor=white)](${DOWNLOAD_BASE_URL}/PromptHub-${VERSION}-arm64.dmg) [![macOS Intel](https://img.shields.io/badge/macOS_Intel-000000?style=for-the-badge&logo=apple&logoColor=white)](${DOWNLOAD_BASE_URL}/PromptHub-${VERSION}-x64.dmg) |
+          | Linux | [![Linux AppImage](https://img.shields.io/badge/Linux_AppImage-FCC624?style=for-the-badge&logo=linux&logoColor=black)](${DOWNLOAD_BASE_URL}/PromptHub-${VERSION}-x64.AppImage) [![Linux deb](https://img.shields.io/badge/Linux_deb-FCC624?style=for-the-badge&logo=linux&logoColor=black)](${DOWNLOAD_BASE_URL}/PromptHub-${VERSION}-amd64.deb) |
+          | 预览版 | [![Preview Prereleases](https://img.shields.io/badge/Preview_Prereleases-8B5CF6?style=for-the-badge&logo=github&logoColor=white)](${PREVIEW_RELEASE_URL}) |
+
+          ### ⚠️ macOS 首次启动
+          如果提示"无法打开"或"已损坏"，请在终端执行：
+          \`\`\`bash
+          sudo xattr -rd com.apple.quarantine /Applications/PromptHub.app
+          \`\`\`
+
+          ${PREVIEW_NOTE}
+
+          ---
+
+          ## 🔄 本次更新
+
+          详细更新日志请查看 [更新日志](https://github.com/legeling/PromptHub#-更新日志)
+          EOF
+
+          # 2. Collect release assets deterministically.
+          # Avoid flattening multiple artifact folders with blind overwrite, or
+          # manifests will no longer match the binaries they describe.
+          echo "Collecting release assets..."
+          mkdir -p release_assets
+
+          copy_unique() {
+            local pattern="$1"
+            local matches=()
+
+            while IFS= read -r line; do
+              matches+=("$line")
+            done < <(find artifacts -type f -name "$pattern" | sort)
+
+            if [ "${#matches[@]}" -eq 0 ]; then
+              echo "Missing release asset: $pattern"
+              exit 1
+            fi
+
+            if [ "${#matches[@]}" -gt 1 ]; then
+              echo "Ambiguous release asset for pattern $pattern:"
+              printf '  %s\n' "${matches[@]}"
+              exit 1
+            fi
+
+            cp "${matches[0]}" "release_assets/$(basename "${matches[0]}")"
+          }
+
+          copy_unique "PromptHub-${VERSION}-x64.dmg"
+          copy_unique "PromptHub-${VERSION}-arm64.dmg"
+          copy_unique "PromptHub-${VERSION}-x64.dmg.blockmap"
+          copy_unique "PromptHub-${VERSION}-arm64.dmg.blockmap"
+          copy_unique "PromptHub-${VERSION}-x64.zip"
+          copy_unique "PromptHub-${VERSION}-arm64.zip"
+          copy_unique "PromptHub-${VERSION}-x64.zip.blockmap"
+          copy_unique "PromptHub-${VERSION}-arm64.zip.blockmap"
+          copy_unique "PromptHub-${VERSION}-x64.AppImage"
+          copy_unique "PromptHub-Setup-${VERSION}-x64.exe"
+          copy_unique "PromptHub-Setup-${VERSION}-arm64.exe"
+          copy_unique "PromptHub-${VERSION}-amd64.deb"
+          copy_unique "prompthub-cli-${VERSION}.tgz"
+          copy_unique "latest.yml"
+          copy_unique "latest-x64.yml"
+          copy_unique "latest-arm64.yml"
+          copy_unique "latest-linux.yml"
+          copy_unique "latest-mac.yml"
+          copy_unique "latest-mac-x64.yml"
+          copy_unique "latest-mac-arm64.yml"
+
+          echo "Files to upload (deduplicated):"
+          ls -1 release_assets/
+
+          # 3. Merge macOS manifests into one canonical latest-mac.yml for both Intel and Apple Silicon.
+          # Keep the arch-specific manifests intact so verification still checks
+          # the original updater metadata emitted by electron-builder.
+          if [ -f "release_assets/latest-mac-x64.yml" ] && [ -f "release_assets/latest-mac-arm64.yml" ]; then
+            node apps/desktop/scripts/merge-mac-latest-yml.js \
+              --x64 release_assets/latest-mac-x64.yml \
+              --arm64 release_assets/latest-mac-arm64.yml \
+              --output release_assets/latest-mac.yml
+            echo "Merged macOS manifests into release_assets/latest-mac.yml"
+          fi
+
+          # 4. Reconcile manifest hashes with actual binary files.
+          # electron-builder on macOS may emit manifests before the final
+          # DMG/ZIP is fully written, causing SHA512/size drift.  Patch the
+          # manifests so published updater metadata always matches the real
+          # artifacts that users will download.
+          node apps/desktop/scripts/fix-manifest-hashes.js \
+            release_assets/latest.yml \
+            release_assets/latest-arm64.yml \
+            release_assets/latest-x64.yml \
+            release_assets/latest-mac.yml \
+            release_assets/latest-mac-arm64.yml \
+            release_assets/latest-mac-x64.yml
+
+          # 5. Verify manifest hashes before publishing. A mismatch here would become a broken auto update.
+          node apps/desktop/scripts/verify-update-manifest.js \
+            release_assets/latest.yml \
+            release_assets/latest-arm64.yml \
+            release_assets/latest-x64.yml \
+            release_assets/latest-mac.yml \
+            release_assets/latest-mac-arm64.yml \
+            release_assets/latest-mac-x64.yml
+
+          # 6. Create or refresh the Release as a DRAFT.
+          # 所有 tag 打包产物默认为 Draft Release，不会被 auto-updater 拉取，
+          # 也不会出现在 "latest" 链接中。验证通过后，维护者手动执行：
+          #   gh release edit <tag> --draft=false --latest
+          # 才会正式对外发布。
+          #
+          # Hotfix republishes for the same tag are allowed; existing assets with
+          # the same file name are replaced in-place via --clobber.
+          if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
+            echo "Release ${GITHUB_REF_NAME} already exists. Updating assets in place (remains draft if currently draft)..."
+            # 保留当前 draft 状态：如果 release 已经是 draft 就保持 draft，
+            # 如果已经发布过就不再退回 draft（避免误伤已发布版本）。
+            IS_DRAFT=$(gh release view "${GITHUB_REF_NAME}" --json isDraft -q .isDraft)
+            gh release edit "${GITHUB_REF_NAME}" \
+              --title "PromptHub ${VERSION}" \
+              --notes-file release_notes.md \
+              --draft=${IS_DRAFT} \
+              --prerelease=${{ contains(github.ref, 'beta') || contains(github.ref, 'alpha') }}
+
+            gh release upload "${GITHUB_REF_NAME}" \
+              release_assets/* \
+              --clobber
+          else
+            echo "Creating DRAFT release..."
+            gh release create "${GITHUB_REF_NAME}" \
+              release_assets/* \
+              --title "PromptHub ${VERSION}" \
+              --notes-file release_notes.md \
+              --draft=true \
+              --prerelease=${{ contains(github.ref, 'beta') || contains(github.ref, 'alpha') }} \
+              --generate-notes
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update Homebrew Cask
+        # Homebrew 只有当 release 已经 promote 为非 draft 时才更新。
+        # 对于 draft release（默认新建时状态），跳过；对 beta/alpha 也跳过。
+        # 验证通过后执行 `gh release edit <tag> --draft=false --latest` 再手动
+        # 重跑该 workflow（workflow_dispatch）或重打 tag 即可触发 Homebrew 更新。
+        if: ${{ !contains(github.ref, 'beta') && !contains(github.ref, 'alpha') && env.HOMEBREW_TAP_TOKEN != '' }}
+        shell: bash
+        run: |
+          # 检查 release 是否仍为 draft；是则跳过 Homebrew 更新
+          IS_DRAFT=$(gh release view "${RELEASE_TAG}" --json isDraft -q .isDraft 2>/dev/null || echo "true")
+          if [ "$IS_DRAFT" = "true" ]; then
+            echo "Release ${RELEASE_TAG} is still a draft; skipping Homebrew cask update."
+            echo "Promote via: gh release edit ${RELEASE_TAG} --draft=false --latest"
+            exit 0
+          fi
+
+          # Wait for release assets to be fully available
+          sleep 15
+          bash apps/desktop/scripts/update-homebrew-cask.sh "$VERSION" "$RELEASE_TAG"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+
+      - name: Skip Homebrew Cask update
+        if: ${{ !contains(github.ref, 'beta') && !contains(github.ref, 'alpha') && env.HOMEBREW_TAP_TOKEN == '' }}
+        shell: bash
+        run: |
+          echo "HOMEBREW_TAP_TOKEN is not configured; skipping Homebrew cask publish."
+        env:
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}

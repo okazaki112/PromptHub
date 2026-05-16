@@ -1,0 +1,49 @@
+# Delta Spec
+
+## Modified
+
+- PromptHub export, backup, and sync entry points must share a recoverable snapshot contract for prompts, folders, versions, rules, skills, settings, and referenced media.
+- `import-with-prompthub.json` inside desktop ZIP exports must itself be importable without needing ZIP side-channel reconstruction.
+- Web `/api/import` must accept PromptHub backup/export envelopes and normalized sync snapshots with equivalent semantics.
+- When an imported snapshot omits `settings`, web import and sync routes must apply the shared web `DEFAULT_SETTINGS` contract rather than route-local fallback values.
+- Desktop sync settings must keep unavailable capabilities visible but clearly disabled when the backing feature is not implemented.
+- Desktop may keep multiple backup targets enabled for manual backup/restore, but automatic sync must execute against only one active sync source at a time.
+- Desktop cloud-backup navigation must use provider-oriented labels and expose whether each provider is enabled without requiring the user to open every panel.
+
+## Scenarios
+
+- Scenario: Desktop ZIP export is re-imported on web
+  - Given desktop generates a selective ZIP export with `import-with-prompthub.json`
+  - When web `/api/import` ingests that ZIP
+  - Then the embedded JSON is sufficient to restore the exported records and settings without depending on undocumented ZIP-only reconstruction rules
+
+- Scenario: Update dialog manual backup reuses desktop full backup contract
+  - Given a desktop user clicks the manual backup action from the update dialog
+  - When PromptHub prepares the pre-upgrade backup artifact
+  - Then it creates the same local upgrade snapshot as before
+  - And the user-facing exported backup uses the desktop full ZIP backup contract instead of the legacy JSON-only backup download
+
+- Scenario: Snapshot fields stay aligned across flows
+  - Given a workspace contains media references, rules, skills, and `settingsUpdatedAt`
+  - When the user exports a backup, uploads to self-hosted sync, or imports through web
+  - Then those flows preserve the same logical snapshot fields and timestamp semantics
+
+- Scenario: Imported snapshot omits settings
+  - Given a valid sync snapshot does not include a `settings` object
+  - When web `/api/import` or `/api/sync/data` imports it
+  - Then the resulting settings use the shared web default settings contract instead of route-specific fallback values
+
+- Scenario: Desktop settings expose unfinished sync providers
+  - Given a desktop sync capability is not wired to a real execution path yet
+  - When the user opens the corresponding settings section
+  - Then PromptHub keeps the controls visible for consistency but disables them and explains that the capability is not available yet
+
+- Scenario: Multiple backup targets remain enabled but only one auto-sync source runs
+  - Given desktop has more than one cloud backup target enabled
+  - When startup sync, periodic sync, or save-triggered sync is evaluated
+  - Then PromptHub runs automatic sync only for the selected `syncProvider` and leaves the other enabled targets available for manual backup and restore actions
+
+- Scenario: Cloud-backup submenu reflects provider state
+  - Given one or more desktop cloud backup providers are enabled
+  - When the user opens the data settings submenu
+  - Then the submenu labels use provider-oriented names and each enabled provider shows an enabled indicator directly in the menu

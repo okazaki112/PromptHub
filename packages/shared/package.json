@@ -1,0 +1,17 @@
+{
+  "name": "@prompthub/shared",
+  "version": "0.1.0",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": "./types/index.ts",
+    "./types": "./types/index.ts",
+    "./types/*": "./types/*.ts",
+    "./constants": "./constants/index.ts",
+    "./constants/*": "./constants/*.ts"
+  },
+  "files": [
+    "types",
+    "constants"
+  ]
+}

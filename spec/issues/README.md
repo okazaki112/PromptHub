@@ -1,0 +1,20 @@
+# Spec Issues
+
+`spec/issues/` 用于存放 PromptHub 内部 SSD 视角下的问题跟踪，而不是对外 issue 模板或零散聊天记录。
+
+## Structure
+
+- `active/`：当前仍在跟踪的问题，包括内部质量跟踪与当前 open GitHub issues 快照。
+- `archive/`：已关闭或仅保留历史参考价值的问题记录。
+
+## Current Records
+
+- `active/quality.md`：内部质量与工具链问题跟踪。
+- `active/github-open.md`：当前 `legeling/PromptHub` 仓库 open issues 快照。
+- `archive/github-closed.md`：当前 `legeling/PromptHub` 仓库 closed issues 快照。
+
+## Sync Note
+
+- 当前 GitHub issue 清单通过 `gh issue list` 手工同步到仓库。
+- 本轮同步时间：`2026-05-12`。
+- 如果 GitHub issue 状态发生明显变化，或某个 active change 依赖 issue 上下文，应优先刷新这里的快照。

@@ -1,0 +1,33 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "useDefineForClassFields": true,
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "skipLibCheck": true,
+    "moduleResolution": "Bundler",
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "strict": false,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "noFallthroughCasesInSwitch": true,
+    "baseUrl": ".",
+    "paths": {
+      "@prompthub/core": ["../../packages/core/src/index.ts"],
+      "@prompthub/core/*": ["../../packages/core/src/*"],
+      "@/*": ["src/*"],
+      "@shared/*": ["../../packages/shared/*"],
+      "@prompthub/shared/*": ["../../packages/shared/*"],
+      "@prompthub/db": ["../../packages/db/src/index.ts"],
+      "@prompthub/db/*": ["../../packages/db/src/*"],
+      "@renderer/*": ["src/renderer/*"]
+    }
+  },
+  "include": ["src/**/*", "../../packages/**/*"],
+  "exclude": ["node_modules", "out"]
+}

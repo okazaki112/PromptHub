@@ -1,0 +1,86 @@
+name: Issue Version Label
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+on:
+  issues:
+    types:
+      - opened
+      - edited
+
+jobs:
+  sync-version-label:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Sync version label from issue form
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const path = require("path");
+            const {
+              getVersionLabelFromIssueBody,
+            } = require(path.join(process.env.GITHUB_WORKSPACE, ".github/scripts/issue-version-label.js"));
+
+            const issue = context.payload.issue;
+            const currentIssue = await github.rest.issues.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issue.number,
+            });
+
+            const versionLabel = getVersionLabelFromIssueBody(issue.body || "");
+            const existingVersionLabels = (currentIssue.data.labels || [])
+              .map((label) => typeof label === "string" ? label : label.name)
+              .filter((name) => typeof name === "string" && name.startsWith("version:"));
+
+            for (const labelName of existingVersionLabels) {
+              if (labelName === versionLabel) {
+                continue;
+              }
+              await github.rest.issues.removeLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                name: labelName,
+              });
+            }
+
+            if (!versionLabel) {
+              core.info("No version field found in issue body; skipped version label sync.");
+              return;
+            }
+
+            const existingRepoLabels = await github.paginate(github.rest.issues.listLabelsForRepo, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              per_page: 100,
+            });
+            const hasRepoLabel = existingRepoLabels.some((label) => label.name === versionLabel);
+
+            if (!hasRepoLabel) {
+              await github.rest.issues.createLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                name: versionLabel,
+                color: "5319e7",
+                description: "Issues reported against a specific PromptHub version",
+              });
+            }
+
+            if (!existingVersionLabels.includes(versionLabel)) {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                labels: [versionLabel],
+              });
+            } else {
+              core.info(`Version label already up to date: ${versionLabel}`);
+            }

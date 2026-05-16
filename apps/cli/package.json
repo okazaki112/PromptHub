@@ -1,0 +1,51 @@
+{
+  "name": "@prompthub/cli",
+  "version": "0.5.6",
+  "description": "PromptHub CLI - standalone command line product",
+  "license": "AGPL-3.0",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/legeling/PromptHub.git",
+    "directory": "apps/cli"
+  },
+  "homepage": "https://github.com/legeling/PromptHub#readme",
+  "bugs": {
+    "url": "https://github.com/legeling/PromptHub/issues"
+  },
+  "bin": {
+    "prompthub": "bin/prompthub.cjs"
+  },
+  "exports": {
+    ".": "./out/prompthub.cjs"
+  },
+  "files": [
+    "bin",
+    "out"
+  ],
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "build": "vite build",
+    "prepack": "pnpm run build",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint . --ext ts --report-unused-disable-directives --max-warnings 0"
+  },
+  "dependencies": {
+    "node-sqlite3-wasm": "^0.8.30"
+  },
+  "devDependencies": {
+    "@prompthub/core": "workspace:*",
+    "@prompthub/db": "workspace:*",
+    "@prompthub/shared": "workspace:*",
+    "@types/node": "^22.0.0",
+    "eslint": "^9.0.0",
+    "tsx": "^4.20.3",
+    "typescript": "^5.6.0",
+    "vite": "^6.0.0",
+    "vitest": "^2.0.0"
+  }
+}

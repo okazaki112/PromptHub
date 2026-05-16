@@ -1,0 +1,37 @@
+# Tasks
+
+- [x] 梳理现有 CLI 与 desktop main 的耦合点。
+- [x] 设计 `apps/cli` + `packages/core` 的 Phase 1 架构。
+- [x] 新增 `packages/core`，抽离 runtime paths 与 database bootstrap。
+- [x] 抽离 CLI `run` 实现到 `packages/core/cli`。
+- [x] 新增 `apps/cli` 产品骨架与 bin/build/test 配置。
+- [x] 让 desktop 现有 CLI 入口改为复用共享 CLI 实现。
+- [x] 补齐 CLI 独立产品测试与脚本。
+- [x] 运行不影响 desktop 的验证。
+- [x] 更新 implementation.md。
+- [x] 补齐 prompt 基础管理缺失命令（versions / rollback / use）。
+- [x] 扩展 prompt 完整管理命令（duplicate / create-version / delete-version / diff / tag 管理）。
+- [x] 为新增 prompt 命令补回归测试。
+- [x] 更新 CLI 文档与 implementation 记录。
+- [x] 新增 folder 基础管理命令（list / get / create / update / delete / reorder）。
+- [x] 为 folder CLI 命令补回归测试。
+- [x] 更新 CLI 文档与 implementation 记录。
+- [x] 新增 workspace export/import（prompt/folder/version JSON）。
+- [x] 为 workspace export/import 补回归测试。
+- [x] 更新 CLI 文档与 implementation 记录。
+- [x] 抽离 shared rules workspace service，解除 CLI 对 desktop main 的依赖。
+- [x] 新增 rules CLI 基础命令（list / scan / read / save / add-project / remove-project / version-delete / export / import）。
+- [x] 为 rules CLI 命令补回归测试。
+- [x] 更新 CLI 文档与 implementation 记录。
+- [x] 补齐根级 `--version`。
+- [x] 补齐 prompt 缺口命令与参数（`copy`、`visibility`、`scope`）。
+- [x] 修正 `PromptDB` 对 `visibility/scope` 的持久化与搜索支持。
+- [x] 补齐 rules 版本命令（`versions` / `version-read` / `version-restore`）。
+- [x] 补齐 skill 版本管理命令（`versions` / `create-version` / `rollback` / `delete-version`）。
+- [x] 补齐 skill 导出命令（`export --format skillmd|json`）。
+- [x] 补齐 skill 平台状态与 MD 安装命令。
+- [x] 补齐 skill repo 管理命令（list/read/write/delete/mkdir/rename/sync）。
+- [x] 补齐 skill safety scan CLI 命令。
+- [x] 为新增 CLI 命令补充回归测试。
+- [x] 更新 README / 多语言 README 的 CLI 命令表。
+- [x] 更新 implementation.md 与验证记录。

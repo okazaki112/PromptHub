@@ -1,0 +1,352 @@
+# Agent Platform Assets
+
+## Purpose
+
+本文件记录 PromptHub 当前关注的 Agent 平台固定资产信息，重点覆盖这些长期稳定、适合被产品建模的本地资产：
+
+- 平台标识与默认根目录
+- 规则 / 上下文文件
+- 记忆 / 会话历史 / transcript / checkpoint 相关资产
+- skills / agents / commands / workflows / steering 等可复用能力载体
+- 配置 / settings / profile / compatibility 文件
+- 官方证据链接与证据级别
+
+## Stable Asset Rules
+
+- 本文档记录的是长期稳定的平台资产清单，不是单次变更 proposal。
+- 当 `packages/shared/constants/platforms.ts` 中的平台根目录、默认规则文件或配置文件发生稳定变化时，应同步更新本文档。
+- 当 `packages/shared/constants/rules.ts` 中的全局规则支持集合发生稳定变化时，应同步更新本文档中的 `Rules Support Snapshot`。
+- 对没有公开官方文档、正文不可抓取、或当前只能通过产品 UI/登录后页面确认的平台，必须明确标注为 `PromptHub inferred` 或 `Evidence limited`。
+- 对于“功能存在但本轮未拿到明确本地路径”的资产，可以记录为“feature documented, local path not confirmed in current pass”，不要伪装成已确认路径。
+
+## Evidence Levels
+
+- `Officially documented`: 官方文档明确写出路径、文件名、目录结构或优先级。
+- `Officially documented (partial)`: 官方文档明确了一部分，但另一些本地路径或兼容行为仍未在当前公开资料中写明。
+- `PromptHub inferred`: 当前来自 PromptHub 平台常量、兼容目标或社区约定，缺少足够公开官方证据。
+- `Evidence limited`: 官方入口存在，但正文需要登录、无法稳定抓取，或公开信息不足以确认本地资产。
+
+## Rules Support Snapshot
+
+当前 `Rules` 模块已稳定支持以下全局规则文件：
+
+- Claude Code: `~/.claude/CLAUDE.md`
+- Codex CLI: `~/.codex/AGENTS.md`
+- Gemini CLI: `~/.gemini/GEMINI.md`
+- OpenCode: `~/.config/opencode/AGENTS.md`
+- Windsurf: `~/.codeium/windsurf/memories/global_rules.md`
+
+补充说明：
+
+- `OpenClaw` 虽然已经有充分官方证据证明其 workspace bootstrap files、memory、sessions、logs 等本地资产存在，但当前并未进入 `Rules` 运行时全局规则白名单。
+- 原因不是证据不足，而是 `Rules` 当前只支持“每个平台一个 canonical 全局规则文件”的单文件模型；`OpenClaw` 的长期上下文表面则是 `~/.openclaw/workspace/` 下的一组 workspace files，而不是单一规则文件。
+- `Cursor`、`Kiro`、`Roo Code`、`GitHub Copilot` 也都已经在资产文档中建模，但当前仍未进入 `Rules` 运行时全局规则白名单。
+- 这些平台未进入白名单的主要原因分别是：缺少已确认的单一本地全局规则文件、以 steering / rules directory / multi-entry 结构为主，或其协议本身以 repository-scoped 文件为核心，而非用户级单文件。
+
+项目规则当前稳定支持：
+
+- 当前项目：`<repo>/AGENTS.md`
+- 用户手动添加目录：`<selected-project>/AGENTS.md`
+
+## Special Filenames
+
+本节只记录“文件名本身就是平台协议”的资产。目录型协议、规则目录、skills 目录、workflow 目录见后续矩阵与平台档案卡。
+
+| Filename / Pattern | Official Platforms | PromptHub Interpretation | Evidence | Notes |
+| --- | --- | --- | --- | --- |
+| `AGENTS.md` | Codex CLI, OpenCode, Cursor, Windsurf, Roo Code, Kiro, GitHub Copilot | 当前最重要的跨平台项目规则 canonical 文件 | Officially documented | Claude Code 不原生读取 `AGENTS.md`，但官方支持在 `CLAUDE.md` 里 `@AGENTS.md` 导入。 |
+| `CLAUDE.md` | Claude Code | Claude 原生项目 / 用户 / managed 指令文件 | Officially documented | OpenCode 将其作为兼容 fallback；GitHub Copilot 允许仓库根使用单个 `CLAUDE.md` 作为 agent instructions。 |
+| `GEMINI.md` | Gemini CLI | Gemini 原生上下文文件 | Officially documented | GitHub Copilot 允许仓库根使用单个 `GEMINI.md` 作为 agent instructions。 |
+| `.github/copilot-instructions.md` | GitHub Copilot | Copilot repository-wide custom instructions | Officially documented | 作用于整个仓库，不等同于 `AGENTS.md` 的就近目录覆盖模型。 |
+| `.github/instructions/*.instructions.md` | GitHub Copilot | Copilot path-specific custom instructions | Officially documented | 通过 frontmatter `applyTo` 绑定路径。 |
+| `global_rules.md` | Windsurf | Windsurf 全局规则单文件 | Officially documented | 规范路径为 `~/.codeium/windsurf/memories/global_rules.md`。 |
+| `.roorules` | Roo Code | Roo workspace generic fallback rule file | Officially documented | 当 `.roo/rules/` 不存在或为空时才回退到该单文件。 |
+| `.roorules-{mode}` | Roo Code | Roo mode-specific fallback rule file | Officially documented | 当 `.roo/rules-{modeSlug}/` 不存在或为空时使用。 |
+| `AGENT.md` | Roo Code | `AGENTS.md` 的 fallback 兼容名 | Officially documented | 仅在 workspace root，且 `AGENTS.md` 不存在时回退。 |
+| `SOUL.md` | OpenClaw | OpenClaw workspace persona / tone file | Officially documented | OpenClaw 官方文档确认使用小写 `SOUL.md`，并在 normal sessions 注入。 |
+| `SOUL.MD` | none confirmed | 不作为稳定官方兼容文件名建模 | Evidence limited | 当前公开资料只确认 `SOUL.md`，未确认全大写 `SOUL.MD`。 |
+| `.cursorrules` | none confirmed in current pass | 不作为稳定官方资产建模 | Evidence limited | Cursor 当前官方主推 `.cursor/rules/` 与 `AGENTS.md`。 |
+| `.windsurfrules` | none confirmed in current pass | 不作为稳定官方资产建模 | Evidence limited | Windsurf 当前官方主推 `global_rules.md`、`.windsurf/rules/*.md` 与 `AGENTS.md`。 |
+
+## Platform Overview
+
+### Documented Platforms
+
+| Platform | Default Root / Config Dir | Rules / Context Surface | Memory / History / Checkpoints | Reusable Assets | Config / Profiles | Evidence |
+| --- | --- | --- | --- | --- | --- | --- |
+| Claude Code | `~/.claude` | `~/.claude/CLAUDE.md`, project `CLAUDE.md`, `./.claude/CLAUDE.md`, `CLAUDE.local.md`, `.claude/rules/**/*.md` | Per-project auto memory in `~/.claude/projects/<project>/memory/` with `MEMORY.md` entrypoint | `.claude/skills/<name>/SKILL.md`; subagents documented; `@AGENTS.md` import supported | user / local / managed settings documented; exact settings file set not re-listed here | Officially documented |
+| Codex CLI | `~/.codex` | `AGENTS.override.md` or `AGENTS.md`; per-directory discovery; fallback names configurable in `config.toml` | `~/.codex/memories/`; Chronicle in `~/.codex/memories_extensions/chronicle/`; temp captures in `$TMPDIR/chronicle/screen_recording/`; logs in `~/.codex/log/` and optional `session-*.jsonl` | Skills in `.agents/skills/`, `~/.agents/skills/`, `/etc/codex/skills`; subagents and workflows documented | `~/.codex/config.toml`, `.codex/config.toml`, `/etc/codex/config.toml`, `--profile`, `CODEX_HOME` | Officially documented |
+| Gemini CLI | `~/.gemini` | `~/.gemini/GEMINI.md`; workspace `GEMINI.md`; customizable `context.fileName`; `/memory` manages loaded context | Session transcripts under `~/.gemini/tmp/<project>/chats/`; resume / rewind / checkpointing documented; project memory inbox and patch workflow documented but not all canonical directories are named on one page | Skills in `~/.gemini/skills/`, `.gemini/skills/`, plus `.agents/skills/` aliases; commands in `~/.gemini/commands/`, `.gemini/commands/` | `~/.gemini/settings.json`, `.gemini/settings.json`; experimental flags for auto memory / memory v2 / model steering | Officially documented |
+| OpenClaw | `~/.openclaw` | workspace bootstrap files in `~/.openclaw/workspace` (or `workspace-<profile>`), including `AGENTS.md`, `SOUL.md`, `USER.md`, `IDENTITY.md`, `TOOLS.md`, optional `HEARTBEAT.md` / `BOOT.md` / `BOOTSTRAP.md` | Session store in `~/.openclaw/agents/<agentId>/sessions/sessions.json`; transcripts in `~/.openclaw/agents/<agentId>/sessions/<sessionId>.jsonl`; daily memory in workspace `memory/YYYY-MM-DD.md`; long-term memory `MEMORY.md`; dreaming surface `DREAMS.md`; gateway logs in `/tmp/openclaw/openclaw-YYYY-MM-DD.log` | Workspace skills in `~/.openclaw/workspace/skills/`; managed skills in `~/.openclaw/skills/`; canvas files in workspace `canvas/` | `~/.openclaw/openclaw.json`; profile-specific workspace via `OPENCLAW_PROFILE`; sandbox workspaces in `~/.openclaw/sandboxes` | Officially documented |
+| OpenCode | `~/.config/opencode` | `~/.config/opencode/AGENTS.md`; local traversal of `AGENTS.md`; Claude fallback `CLAUDE.md`; extra `instructions` via `opencode.json` | Snapshot / undo feature documented; canonical persisted conversation-history path not confirmed in current pass | Agents in `agents/`; skills in `skills/`; commands in `commands/`; plugins in `plugins/`; modes in `modes/` | `~/.config/opencode/opencode.json`, `~/.config/opencode/tui.json`, project `opencode.json`, env-based overrides, managed configs | Officially documented |
+| Cursor | `~/.cursor` | `.cursor/rules/` project rules; `AGENTS.md` in root and subdirectories; user rules and team rules documented | No public local memory / transcript / checkpoint path confirmed in current pass | Rule files in `.cursor/rules/`; no official local `skills/` directory confirmed in current pass | Team rules via dashboard; public local user-rule file path not confirmed in current pass | Officially documented (partial) |
+| Windsurf | `~/.codeium/windsurf` | `memories/global_rules.md`; `.windsurf/rules/*.md`; directory-scoped `AGENTS.md`; enterprise system rules | Workspace memories in `~/.codeium/windsurf/memories/`; memories are local and workspace-scoped | Skills in `.windsurf/skills/` and `~/.codeium/windsurf/skills/`; workflows in `.windsurf/workflows/` and `~/.codeium/windsurf/global_workflows/`; `.agents/skills/` compatibility | Root config dir documented by feature paths; separate public settings-file contract not the focus of current pass | Officially documented |
+| Kiro | `~/.kiro` | Workspace and global steering in `.kiro/steering/` and `~/.kiro/steering/`; root or global `AGENTS.md` also supported | No public local transcript / checkpoint directory confirmed in current pass | Skills in `.kiro/skills/` and `~/.kiro/skills/`; manual steering files also surface as slash commands | Steering inclusion modes and panel-driven management documented; standalone config file path not confirmed in current pass | Officially documented (partial) |
+| Roo Code | `~/.roo` | `~/.roo/rules/`, `~/.roo/rules-{mode}/`, `.roo/rules/`, `.roo/rules-{mode}/`, `.roorules`, `.roorules-{mode}`, workspace `AGENTS.md` / `AGENT.md` | Checkpoints enabled by default via shadow git repo; task-scoped restore / diff documented | Skills in `.roo/skills/`, `.roo/skills-{mode}/`, `~/.roo/skills/`, `~/.roo/skills-{mode}/`, plus `.agents/skills/`; slash commands in `.roo/commands/`, `~/.roo/commands/` | VS Code setting `roo-cline.useAgentRules`; mode and prompt UI configs documented | Officially documented |
+| GitHub Copilot | repo-scoped, no single local root dir | `.github/copilot-instructions.md`; `.github/instructions/*.instructions.md`; `AGENTS.md` anywhere in repo; root `CLAUDE.md` or `GEMINI.md` alternative | No local memory / transcript / checkpoint path documented in this repository-customization pass | Agent instructions only; reusable workflows live in GitHub / IDE surfaces rather than a local agent-skill directory in this pass | Repository settings can enable / disable use of custom instructions for code review | Officially documented |
+| Amp | `~/.config/agents` | login-gated agents manual exists | not confirmed | not confirmed | not confirmed | Evidence limited |
+
+### PromptHub-Inferred Inventory
+
+这些平台当前仍以 PromptHub 的平台根目录兼容目标为主，缺少足够公开官方资料支撑更细的本地资产建模。
+
+| Platform | ID | Default Root (macOS) | Current PromptHub Model | Evidence |
+| --- | --- | --- | --- | --- |
+| Antigravity | `antigravity` | `~/.gemini/antigravity` | root dir + `skills/` convention only | PromptHub inferred |
+| Trae | `trae` | `~/.trae` | root dir + `skills/` convention only | PromptHub inferred |
+| Qoder | `qoder` | `~/.qoder` | root dir + `skills/` convention only | PromptHub inferred |
+| QoderWorker | `qoderwork` | `~/.qoderwork` | root dir + `skills/` convention only | PromptHub inferred |
+| Hermes Agent | `hermes` | `~/.hermes` | root dir + `skills/` convention only | PromptHub inferred |
+| CodeBuddy | `codebuddy` | `~/.codebuddy` | root dir + `skills/` convention only | PromptHub inferred |
+
+## Platform Cards
+
+### Claude Code
+
+- Root: `~/.claude`
+- Rules and context:
+  - `~/.claude/CLAUDE.md`
+  - project `CLAUDE.md` or `./.claude/CLAUDE.md`
+  - local personal override `CLAUDE.local.md`
+  - path-scoped rules in `.claude/rules/**/*.md`
+  - can import `@AGENTS.md` for cross-agent instruction reuse
+- Memory and state:
+  - auto memory root: `~/.claude/projects/<project>/memory/`
+  - `MEMORY.md` is the always-loaded index; topic files are lazy-loaded
+  - loaded into each session with size limits for `MEMORY.md`, not for `CLAUDE.md`
+- Reusable assets:
+  - skills in `.claude/skills/<name>/SKILL.md`
+  - subagent persistent memory is officially documented
+- Evidence note:
+  - Claude has the strongest official separation between rules (`CLAUDE.md`) and auto memory.
+  - Current pass re-verified the memory directory, but did not separately re-verify a canonical transcript JSONL pathname.
+
+### Codex CLI
+
+- Root: `~/.codex` unless overridden by `CODEX_HOME`
+- Rules and context:
+  - global: `AGENTS.override.md` or `AGENTS.md`
+  - project discovery walks from repo root to current directory
+  - fallback instruction filenames configurable via `project_doc_fallback_filenames`
+- Memory and history:
+  - memories: `~/.codex/memories/`
+  - Chronicle extension memories: `~/.codex/memories_extensions/chronicle/`
+  - Chronicle temp captures: `$TMPDIR/chronicle/screen_recording/`
+  - TUI log: `~/.codex/log/codex-tui.log`
+  - optional session logs: `session-*.jsonl`
+- Reusable assets:
+  - skills under repo / user / admin / system discovery tiers via `.agents/skills/`
+  - subagents and workflows are first-class documented concepts
+- Config and profiles:
+  - `~/.codex/config.toml`, `.codex/config.toml`, `/etc/codex/config.toml`
+  - named profiles and enterprise `requirements.toml` documented
+
+### Gemini CLI
+
+- Root: `~/.gemini`
+- Rules and context:
+  - global context: `~/.gemini/GEMINI.md`
+  - workspace and ancestor `GEMINI.md` files participate in hierarchical loading
+  - `context.fileName` can explicitly add names like `AGENTS.md`, `CONTEXT.md`, `GEMINI.md`
+- Memory and history:
+  - session transcripts scanned from `~/.gemini/tmp/<project>/chats/`
+  - `/resume`, `-r`, `/rewind`, and delete-session flows are officially documented
+  - Auto Memory writes reviewable patches / skills into a project-local inbox before approval
+- Reusable assets:
+  - skills: `~/.gemini/skills/`, `.gemini/skills/`, plus `.agents/skills/` aliases
+  - commands: `~/.gemini/commands/`, `.gemini/commands/`
+  - model steering, subagents, checkpointing, and hooks are official features
+- Config and settings:
+  - user settings: `~/.gemini/settings.json`
+  - workspace settings: `.gemini/settings.json`
+
+### OpenCode
+
+- Root: `~/.config/opencode`
+- Rules and context:
+  - global rules: `~/.config/opencode/AGENTS.md`
+  - local rules: nearest `AGENTS.md`; Claude fallback `CLAUDE.md`
+  - additional instruction files can be injected from `opencode.json`
+- Reusable assets:
+  - markdown agents: `~/.config/opencode/agents/`, `.opencode/agents/`
+  - skills: `~/.config/opencode/skills/`, `.opencode/skills/`
+  - commands: `~/.config/opencode/commands/`, `.opencode/commands/`
+  - plugins / modes / tools / themes share the same plural-directory convention
+- Config and runtime:
+  - `~/.config/opencode/opencode.json`
+  - `~/.config/opencode/tui.json`
+  - project `opencode.json`
+  - custom path / custom directory / managed config / MDM preferences all documented
+- State handling:
+  - snapshot system is documented and configurable, but current public docs pass does not name a stable on-disk conversation-history directory
+
+### OpenClaw
+
+- Root: `~/.openclaw`
+- Workspace model:
+  - default workspace: `~/.openclaw/workspace`
+  - profile workspace: `~/.openclaw/workspace-<profile>` when `OPENCLAW_PROFILE` is set
+  - sandbox workspaces: `~/.openclaw/sandboxes`
+  - `~/.openclaw/` itself stores config, credentials, managed skills, and sessions rather than workspace memory files
+- Rules and context:
+  - workspace bootstrap files include `AGENTS.md`, `SOUL.md`, `USER.md`, `IDENTITY.md`, `TOOLS.md`
+  - optional session/startup files include `HEARTBEAT.md`, `BOOT.md`, `BOOTSTRAP.md`
+  - `SOUL.md` is the official personality guide and is injected on normal sessions
+- Memory and history:
+  - curated long-term memory: `~/.openclaw/workspace/MEMORY.md`
+  - daily notes: `~/.openclaw/workspace/memory/YYYY-MM-DD.md`
+  - dreaming / review surface: `~/.openclaw/workspace/DREAMS.md`
+  - session store: `~/.openclaw/agents/<agentId>/sessions/sessions.json`
+  - transcripts: `~/.openclaw/agents/<agentId>/sessions/<sessionId>.jsonl`
+  - topic transcript variant: `<sessionId>-topic-<threadId>.jsonl`
+  - gateway logs: `/tmp/openclaw/openclaw-YYYY-MM-DD.log`
+- Reusable assets:
+  - workspace skills: `~/.openclaw/workspace/skills/`
+  - managed skills: `~/.openclaw/skills/`
+  - optional Canvas UI files: `~/.openclaw/workspace/canvas/`
+- Config and profiles:
+  - primary config: `~/.openclaw/openclaw.json`
+  - profile-specific default workspace selected via `OPENCLAW_PROFILE`
+- Modeling note:
+  - OpenClaw is no longer just a PromptHub-inferred root-directory target; current public docs are sufficient to model its workspace files, memory surfaces, session persistence, and logs as stable local assets.
+  - PromptHub runtime still does not expose OpenClaw under the `Rules` global-file whitelist, because the current `Rules` UX models one canonical global file per platform rather than a multi-file workspace bootstrap surface.
+
+### Cursor
+
+- Root convention in PromptHub: `~/.cursor`
+- Officially confirmed assets in current pass:
+  - `.cursor/rules/` for project rules
+  - root and nested `AGENTS.md`
+  - user rules and team rules exist as product concepts
+- Not confirmed in current pass:
+  - a canonical local global-rule file pathname
+  - a local `skills/` directory or reusable command/workflow directory
+  - local transcript / memory / checkpoint storage paths
+- Modeling note:
+  - Cursor is now strong enough for documentation-level support around rules, but still not ready for PromptHub runtime support beyond the current `AGENTS.md`-style workspace model without more public file-path evidence.
+  - It is intentionally not listed in the current `Rules` global whitelist because this pass still does not confirm one stable local user-level canonical rule file equivalent to `CLAUDE.md` or `GEMINI.md`.
+
+### Windsurf
+
+- Root: `~/.codeium/windsurf`
+- Rules and context:
+  - global rules: `~/.codeium/windsurf/memories/global_rules.md`
+  - workspace rules: `.windsurf/rules/*.md`
+  - directory-scoped `AGENTS.md` is processed by the same rules engine
+  - enterprise system rules supported in OS-specific locations
+- Memory and history:
+  - workspace memories stored locally in `~/.codeium/windsurf/memories/`
+  - memories are workspace-scoped and not committed to the repo
+- Reusable assets:
+  - workspace skills: `.windsurf/skills/<name>/SKILL.md`
+  - global skills: `~/.codeium/windsurf/skills/<name>/SKILL.md`
+  - workspace workflows: `.windsurf/workflows/*.md`
+  - global workflows: `~/.codeium/windsurf/global_workflows/*.md`
+  - compatible skill discovery: `.agents/skills/`, `~/.agents/skills/`, optional `.claude/skills/`
+- Modeling note:
+  - Windsurf is now one of the clearest platforms for PromptHub to model because its rules, memories, skills, and workflows all expose stable local paths.
+
+### Kiro
+
+- Root: `~/.kiro`
+- Steering assets:
+  - workspace steering: `.kiro/steering/`
+  - global steering: `~/.kiro/steering/`
+  - foundational steering files: `product.md`, `tech.md`, `structure.md`
+  - `AGENTS.md` accepted in workspace root or `~/.kiro/steering/`
+- Skill assets:
+  - workspace skills: `.kiro/skills/`
+  - global skills: `~/.kiro/skills/`
+  - skills can also be invoked from slash-command UI
+- Inclusion model:
+  - steering supports `always`, `fileMatch`, `manual`, and `auto`
+  - manual and auto steering files surface like commands, but Kiro does not present a separate dedicated local `commands/` directory in current docs
+- Modeling note:
+  - Kiro is documented well enough for asset-level modeling, but its steering-first directory model is not the same thing as a single canonical global rule file, so it is not part of the current `Rules` whitelist.
+
+### Roo Code
+
+- Root: `~/.roo`
+- Rules and context:
+  - global: `~/.roo/rules/`, `~/.roo/rules-{modeSlug}/`
+  - workspace: `.roo/rules/`, `.roo/rules-{modeSlug}/`
+  - fallback files: `.roorules`, `.roorules-{modeSlug}`
+  - workspace root `AGENTS.md` or `AGENT.md`
+- Checkpoints and state:
+  - checkpoints are enabled by default
+  - implemented via a shadow Git repository, task-scoped
+  - restore modes distinguish file-only restore from file+task restore
+- Reusable assets:
+  - skills in `.roo/skills/`, `.roo/skills-{mode}/`, `~/.roo/skills/`, `~/.roo/skills-{mode}/`
+  - cross-agent skill compatibility via `.agents/skills/` and `~/.agents/skills/`
+  - slash commands in `.roo/commands/` and `~/.roo/commands/`
+- Config note:
+  - docs prominently expose VS Code settings, prompts tab, and mode configuration
+  - `roo-cline.useAgentRules` controls AGENTS loading
+- Modeling note:
+  - Roo Code exposes a rich multi-entry rule surface, but PromptHub `Rules` currently does not collapse directory-based and mode-specific rule trees into one synthetic global file entry.
+
+### GitHub Copilot
+
+- Scope model:
+  - no single user-level local platform root is documented in this pass for repository custom instructions
+  - repository-level assets are the important durable contract
+- Official instruction assets:
+  - `.github/copilot-instructions.md` for repository-wide instructions
+  - `.github/instructions/*.instructions.md` for path-specific instructions with `applyTo`
+  - `AGENTS.md` files anywhere in the repository for agent instructions
+  - root `CLAUDE.md` or `GEMINI.md` as single-file alternatives
+- Modeling note:
+  - Copilot is valuable mainly as a compatibility target for instruction filenames rather than as a platform-root filesystem target in PromptHub today.
+  - It is intentionally excluded from the current `Rules` global whitelist because its durable instruction contract is repository-scoped, not a single user-level local global rule file.
+
+### Amp
+
+- PromptHub root convention: `~/.config/agents`
+- Public evidence state:
+  - an agents manual entry exists
+  - the detailed content remains login-gated in the current pass
+- Modeling note:
+  - keep Amp in the platform list, but do not assert rules / skills / workflow subpaths as official facts until public docs are available.
+
+## Evidence Links
+
+- Claude Code memory and CLAUDE.md: `https://docs.anthropic.com/en/docs/claude-code/memory`
+- Codex AGENTS.md: `https://developers.openai.com/codex/guides/agents-md`
+- Codex config basics: `https://developers.openai.com/codex/config-basic`
+- Codex memories: `https://developers.openai.com/codex/memories`
+- Codex Chronicle: `https://developers.openai.com/codex/memories/chronicle`
+- Codex skills: `https://developers.openai.com/codex/skills`
+- Gemini CLI GEMINI.md: `https://www.geminicli.com/docs/cli/gemini-md`
+- Gemini CLI settings: `https://www.geminicli.com/docs/cli/settings`
+- Gemini CLI skills: `https://www.geminicli.com/docs/cli/skills/`
+- Gemini CLI auto memory: `https://www.geminicli.com/docs/cli/auto-memory/`
+- Gemini CLI session management: `https://www.geminicli.com/docs/cli/tutorials/session-management/`
+- Gemini CLI custom commands: `https://www.geminicli.com/docs/cli/custom-commands/`
+- OpenCode rules: `https://opencode.ai/docs/rules`
+- OpenCode agents: `https://opencode.ai/docs/agents`
+- OpenCode config: `https://opencode.ai/docs/config`
+- OpenCode skills: `https://opencode.ai/docs/skills`
+- OpenClaw SOUL.md: `https://docs.openclaw.ai/concepts/soul`
+- OpenClaw workspace: `https://docs.openclaw.ai/concepts/agent-workspace.md`
+- OpenClaw memory: `https://docs.openclaw.ai/concepts/memory`
+- OpenClaw sessions: `https://docs.openclaw.ai/reference/session-management-compaction`
+- OpenClaw logging: `https://docs.openclaw.ai/gateway/logging`
+- Cursor rules: `https://cursor.com/docs/context/rules`
+- Windsurf memories and rules: `https://docs.windsurf.com/windsurf/cascade/memories`
+- Windsurf AGENTS.md: `https://docs.windsurf.com/windsurf/cascade/agents-md`
+- Windsurf skills: `https://docs.windsurf.com/windsurf/cascade/skills`
+- Windsurf workflows: `https://docs.windsurf.com/windsurf/cascade/workflows`
+- Kiro steering: `https://kiro.dev/docs/steering/`
+- Kiro agent skills: `https://kiro.dev/docs/skills/`
+- Roo Code custom instructions: `https://docs.roocode.com/features/custom-instructions`
+- Roo Code skills: `https://docs.roocode.com/features/skills`
+- Roo Code slash commands: `https://docs.roocode.com/features/slash-commands`
+- Roo Code checkpoints: `https://docs.roocode.com/features/checkpoints`
+- GitHub Copilot repository custom instructions: `https://docs.github.com/en/copilot/customizing-copilot/adding-repository-custom-instructions-for-github-copilot`
+
+## Canonical Sources
+
+- 平台元数据源码：`packages/shared/constants/platforms.ts`
+- Rules 注册表源码：`packages/shared/constants/rules.ts`
+- 平台路径派生逻辑：`apps/desktop/src/main/services/skill-installer-utils.ts`

@@ -1,0 +1,6 @@
+- [x] 审查 desktop preload 与 Web bridge 的关键能力差异
+- [x] 补齐 Web bridge 中缺失的 Prompt / Rules / Skill / electron 能力
+- [x] 为缺失能力新增最小 Web 路由或服务
+- [x] 补充 Web 端桥接与路由回归测试
+- [ ] 运行 `lint` / `typecheck` / `test` / `build`
+- [ ] 更新 implementation.md

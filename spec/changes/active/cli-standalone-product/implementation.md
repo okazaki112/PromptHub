@@ -1,0 +1,154 @@
+# Implementation
+
+## Shipped
+
+- 进入 standalone CLI v1 缺口补齐阶段，范围聚焦 `prompt` / `rules` / `skill` 三组资源中“底层能力已存在、CLI 尚未暴露”的命令面。
+- 新增 `packages/core/src/cli/skill-cli-service.ts`，提供 standalone CLI 当前所需的最小 skill 能力：
+  - 本地 `SKILL.md` / 目录安装
+  - 托管 repo 判定与删除
+  - 本地扫描预览
+  - 平台卸载
+- 在上述基础上继续补齐 standalone Phase 1 的安装入口：
+  - 本地 `.json` skill 导入
+  - 远程 `https://` SKILL.md 安装
+  - GitHub repo 安装
+- `packages/core/src/cli/skill-cli-service.ts` 现在支持通过依赖注入替换 `fetch` / `gitClone`，便于 standalone CLI 对远程安装链路做稳定测试。
+- `packages/core/src/cli/run.ts` 改为可注入三类依赖：
+  - runtime hooks
+  - database hooks
+  - skill service
+- 新增 `packages/core/src/skills/install-flow.ts`，把 `source -> github / https / local dir / local file / json` 的安装分流逻辑抽成 shared orchestration helper。
+- desktop `SkillInstaller.installFromSource()` 与 standalone `createCliSkillService().installFromSource()` 现在都复用同一个 shared install flow，减少行为漂移风险。
+- desktop 内嵌 CLI 已整体移除：
+  - 删除 `apps/desktop/src/cli/*`
+  - 删除 `apps/desktop/src/main/desktop-cli.ts`
+  - 删除 desktop 的 CLI bin、vite config 与相关单测
+  - 删除 desktop package 中的 CLI `bin` / `exports` / `out/cli` / `cli:*` 脚本
+- desktop 不再把 standalone CLI 藏在 `About` 说明块里：新增了独立 `PromptHub CLI` 设置页，展示安装状态、命令名、安装源、检测到的包管理器，并支持通过 npm / pnpm 直接安装当前 release 的 CLI tarball。
+- `packages/core/src/cli/run.ts` 不再直接依赖 desktop `SkillInstaller`，从而解除 `apps/cli` 对 `apps/desktop/src/main/services/*` 的编译和打包耦合。
+- `apps/cli/src/index.ts` 与 `apps/cli/tests/run.test.ts` 改为通过 `@prompthub/core` 消费共享 CLI 入口。
+- `apps/cli/tsconfig.json` 已收窄 `include` 与 alias 作用域，不再把 `apps/desktop/src/renderer/**/*.tsx` 卷入 standalone CLI typecheck。
+- `apps/cli/vite.config.ts` 已去掉 desktop renderer 相关 alias，保证 standalone CLI bundle 只依赖 core/db/shared。
+- 补充清理文档与 active spec 残留：修正多语言 README 命令表中的旧 desktop CLI 启动命令，并把设计文档中的迁移计划改写为当前已落地的迁移结果。
+- 继续修正用户文档与设置页中的错误安装说明：明确 desktop 不会自动安装 `prompthub` 命令，当前以 `apps/cli` 的源码入口和构建后 bundle 作为真实可用方式，并把 active spec 中“desktop 继续暴露 CLI 入口”的旧迁移要求改成“desktop 停止分发 CLI 入口”。
+- 继续把原 desktop CLI 测试中仍然适用于 standalone 产品的高价值场景迁移到 `apps/cli/tests/run.test.ts`，补齐以下回归覆盖：
+  - 全局参数缺值报错（`--data-dir`）
+  - prompt `--tags` CSV 归一化
+  - `--system-prompt` 与 `--system-prompt-file` 互斥校验
+  - prompt 全生命周期（create -> update -> search -> delete -> get missing）
+  - custom path `skill scan`
+  - `skill delete --keep-platform-installs`
+  - 平台卸载失败时的 `uninstallResults` rejected 原因回传
+- 继续把 standalone CLI 收口到可本地分发状态：
+  - 调整 `apps/cli/package.json`，补齐版本、license、repository、bugs、homepage、`prepack` 与 runtime dependency
+  - 修正根脚本 `pack:cli`，改为 `pnpm --dir apps/cli pack`
+  - 确认 `bin/prompthub.cjs` 在构建后可直接运行，不再缺少 `node-sqlite3-wasm`
+  - 补充 README / 多语言 README 中基于本地 tarball 的安装方式
+  - 在干净临时目录内完成 `pnpm add <tarball>` + `pnpm exec prompthub --help` 烟测
+- 继续把 standalone CLI 的 release 分发路径补齐到 desktop 可消费状态：
+  - desktop main 新增 `cli:status` / `cli:install` IPC，检测 `prompthub` 是否在 PATH 中可用，并执行真实的 npm / pnpm 全局安装命令
+  - preload / renderer 新增 CLI 设置页与状态/安装调用链
+  - GitHub release workflow 现会额外打包并上传 `prompthub-cli-<version>.tgz`，作为桌面端一键安装的真实来源
+- 继续扩充 prompt 基础管理命令，直接复用 `PromptDB` 已有能力：
+  - `prompt versions <id>` 查看版本历史
+  - `prompt rollback <id> --version <n>` 回滚到指定版本
+  - `prompt use <id>` 增加使用次数并返回最新 prompt
+  - 同步更新 CLI help、README 命令表与回归测试
+- 继续把 prompt 管理命令补齐到完整基础面：
+  - `prompt duplicate <id>`
+  - `prompt create-version <id> [--note <text>]`
+  - `prompt delete-version <id> <version-id>`
+  - `prompt diff <id> --from <n> --to <n>`
+  - `prompt list-tags`
+  - `prompt rename-tag <old> <new>`
+  - `prompt delete-tag <tag>`
+  - `prompt create/update` 新增 `systemPromptEn`、`userPromptEn`、`variables`、`images`、`videos`、`usageCount`、`lastAiResponse` 参数支持
+  - 同步更新 CLI help、README 命令表与回归测试，覆盖 23 条 standalone CLI 场景
+- 继续补齐 prompt 组织结构所需的 folder CLI 资源：
+  - `folder list|get|create|update|delete|reorder`
+  - 直接复用 `FolderDB` 的 `create()`、`getById()`、`getAll()`、`update()`、`delete()`、`reorder()`
+  - 补充 folder lifecycle 与 `reorder --ids` 错误路径回归测试
+- 继续补齐 standalone CLI 的最小可迁移工作流：
+  - `workspace export --file <path>`
+  - `workspace import --file <path> [--force-clear]`
+  - 当前先覆盖 prompts / folders / versions 三类核心 JSON 数据
+  - import 默认拒绝覆盖非空数据库，只有显式 `--force-clear` 才会先清空再导入
+  - 补充 export/import 正常路径与覆盖保护回归测试
+- 继续把 rules 的非 AI 能力从 desktop main 抽到 shared core：
+  - 新增 `packages/core/src/rules-workspace.ts` 与 `packages/core/src/platform-paths.ts`
+  - desktop `apps/desktop/src/main/services/rules-workspace.ts` 改为 shared service 薄封装
+  - standalone CLI 新增 `rules list|scan|read|save|add-project|remove-project|version-delete|export|import`
+  - `apps/cli/tests/run.test.ts` 补充 rules project lifecycle、rules export/import、rules save 参数校验回归
+  - README 与多语言 README 命令表同步加入 `rules` 资源
+- 继续把 rules rewrite 也抽到 shared core：
+  - 新增 `packages/core/src/ai-client.ts` 与 `packages/core/src/rules-rewrite.ts`
+  - desktop `rules.ipc.ts` 改为复用 shared `rewriteRuleWithAi()`
+  - standalone CLI 新增 `rules rewrite <rule-id> --instruction ... --api-key ... --api-url ... --model ...`
+  - `apps/cli/tests/run.test.ts` 补充 rules rewrite 成功路径与显式 AI 参数校验回归
+- standalone CLI v1 缺口已继续补齐一轮：
+  - 根命令新增 `--version|-v`
+  - `prompt` 新增 `copy`，并补齐 `visibility` / `scope` 参数链路
+  - `PromptDB` 补齐 `visibility` 持久化与 `scope` 搜索过滤
+  - `rules` 新增 `versions` / `version-read` / `version-restore`
+  - `skill` 新增 `versions` / `create-version` / `rollback` / `delete-version`
+  - `skill` 新增 `export --format skillmd|json`
+  - `skill` 新增 `platforms` / `platform-status` / `install-md` / `uninstall-md`
+  - `skill` 新增 `repo-files` / `repo-read` / `repo-write` / `repo-delete` / `repo-mkdir` / `repo-rename` / `sync-from-repo`
+  - `skill` 新增 `scan-safety`
+- `packages/core/src/cli/skill-cli-service.ts` 现在已承接 standalone CLI 的 skill 版本快照、repo 文件管理、平台状态、导出和安全扫描能力，不再只负责安装/扫描。
+- 修正 CLI 文本参数解析：允许 `--content` / `--instruction` / prompt 文本参数接收以 YAML frontmatter `---` 开头的多行内容，避免把合法 `SKILL.md` / prompt 正文误判成缺参。
+- `apps/cli/tests/run.test.ts` 回归扩到 37 条，新增覆盖：
+  - 根级 `--version`
+  - `prompt visibility/scope/copy`
+  - `rules versions/version-read/version-restore`
+  - `skill` 版本管理、导出、平台状态、repo 写入/同步/回滚与 safety scan
+- README 与 `docs/README.en.md` 的 CLI 命令表已同步更新到当前命令面。
+
+## Verification
+
+- `pnpm --filter @prompthub/cli typecheck`
+- `pnpm --filter @prompthub/cli test`
+- `pnpm --filter @prompthub/cli test -- run.test.ts --run`
+- `pnpm --filter @prompthub/cli build`
+- `pnpm --filter @prompthub/cli lint`
+- `pnpm pack:cli`
+- `pnpm --filter @prompthub/cli exec node bin/prompthub.cjs --help`
+- `pnpm --filter @prompthub/cli test -- run.test.ts --run`（包含 prompt versions / rollback / use 新增回归）
+- `pnpm --filter @prompthub/cli test -- run.test.ts --run`（包含 duplicate / create-version / delete-version / diff / tag 管理 / 扩展字段参数回归）
+- `node apps/cli/out/prompthub.cjs prompt --help`
+- `node apps/cli/out/prompthub.cjs --data-dir <temp-user-data> prompt create --title "Smoke Prompt" --user-prompt "Smoke body" --tags smoke,cli`
+- `node apps/cli/out/prompthub.cjs --data-dir <temp-user-data> prompt list-tags`
+- `pnpm --filter @prompthub/cli test -- run.test.ts --run`（包含 folder list|get|create|update|delete|reorder 回归）
+- `node apps/cli/out/prompthub.cjs --data-dir <temp-folder-data> folder create --name "Smoke Folder" --icon "📁"`
+- `node apps/cli/out/prompthub.cjs --data-dir <temp-folder-data> folder list`
+- `pnpm --filter @prompthub/cli test -- run.test.ts --run`（包含 workspace export/import 回归）
+- `pnpm --filter @prompthub/cli test -- tests/run.test.ts --run`（包含 rules CLI 回归）
+- `node apps/cli/out/prompthub.cjs --data-dir <workspace-src> workspace export --file <workspace-export.json>`
+- `node apps/cli/out/prompthub.cjs --data-dir <workspace-dst> workspace import --file <workspace-export.json>`
+- `node apps/cli/out/prompthub.cjs --data-dir <workspace-dst> prompt list`
+- 在临时目录安装 `apps/cli/prompthub-cli-0.5.6-beta.2.tgz` 后执行：`pnpm exec prompthub --help`
+- 在临时目录安装 `apps/cli/prompthub-cli-0.5.6-beta.2.tgz` 后执行：`pnpm exec prompthub prompt list --data-dir <temp-user-data>`
+- `pnpm --filter @prompthub/desktop typecheck`
+- `pnpm --filter @prompthub/desktop lint`
+- `pnpm --filter @prompthub/desktop test -- tests/unit/components/about-settings.test.tsx tests/unit/components/settings-page.test.tsx --run`
+- `pnpm --filter @prompthub/desktop test -- tests/unit/components/cli-settings.test.tsx tests/unit/components/settings-page.test.tsx tests/unit/components/about-settings.test.tsx --run`
+- `pnpm --filter @prompthub/desktop build`
+- 仓库级搜索：确认 `pnpm --filter @prompthub/desktop cli:dev` 已无匹配，剩余 `desktop-cli` / `--cli` 命中仅存在于 active change 的历史记录文本中
+- 仓库级搜索：确认 README、多语言 README、desktop About 设置页与 active spec 已不再宣称“桌面版自动安装 CLI”；剩余旧说法仅存在于历史 `CHANGELOG.md` / `website` changelog 发布记录中
+- `pnpm --filter @prompthub/cli typecheck`（含新增 skill CLI service / run.ts / PromptDB 变更）
+- `pnpm --filter @prompthub/cli test`（37 条用例全部通过）
+
+说明：`pnpm --filter @prompthub/desktop test -- --run` 当前仍有与本次 CLI 拆分无关的历史失败项，本次改动已对 desktop 受影响范围做 lint/typecheck/定点 UI 测试与 build 验证。
+
+## Synced Docs
+
+- 本次仅更新 active change 执行记录，稳定域文档待 CLI Phase 1 收尾后一并同步。
+
+## Follow-ups
+
+- 后续继续评估是否把更多与 skills 相关的远程校验、认证 token、SSRF 防护和 richer export/import 能力从 desktop service 渐进抽到 `packages/core`。
+- 评估是否把 CLI 相关 desktop 全量回归拆分成更细粒度测试文件，避免单文件执行在工具超时限制内被中断。
+- CLI 设置页已根据用户反馈收短：移除 `CLI 命令`、`安装来源` 等偏技术实现的信息块，只保留 `安装状态`、`当前版本`、`包管理器` 和安装/刷新按钮，让界面更面向终端用户而非开发者。
+- 当前仍值得继续跟进的仅剩两类非阻断项：
+  - 其余多语言 README 的 CLI 命令表尚未同步到这轮新增命令
+  - `skill scan-safety` 当前是本地启发式扫描，不是桌面端那套更重的 AI 扫描链路

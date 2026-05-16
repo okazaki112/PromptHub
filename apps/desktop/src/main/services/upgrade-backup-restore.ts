@@ -1,0 +1,147 @@
+import fs from "fs";
+import path from "path";
+
+import type { UpgradeBackupRestoreResult } from "@prompthub/shared/types";
+
+import {
+  createUpgradeDataSnapshot,
+  getUpgradeBackup,
+  getUpgradeBackupRoot,
+  RUNTIME_CACHE_ENTRIES,
+} from "./upgrade-backup";
+import { writeRestoreMarker } from "./prompt-workspace";
+
+function unique<T>(values: T[]): T[] {
+  return [...new Set(values)];
+}
+
+function getRestoreCandidates(currentDataPath: string, backupPath: string): string[] {
+  const snapshotEntries = fs.readdirSync(backupPath, { withFileTypes: true });
+  const currentEntries = fs.existsSync(currentDataPath)
+    ? fs.readdirSync(currentDataPath, { withFileTypes: true })
+    : [];
+
+  return unique([
+    ...snapshotEntries.map((entry) => entry.name),
+    ...currentEntries.map((entry) => entry.name),
+  ]).filter(
+    (name) =>
+      name !== "backup-manifest.json" &&
+      name !== path.basename(getUpgradeBackupRoot(currentDataPath)) &&
+      !RUNTIME_CACHE_ENTRIES.has(name),
+  );
+}
+
+function removePathIfExists(targetPath: string): void {
+  if (!fs.existsSync(targetPath)) {
+    return;
+  }
+  fs.rmSync(targetPath, { recursive: true, force: true });
+}
+
+function restoreEntry(sourcePath: string, targetPath: string): void {
+  if (!fs.existsSync(sourcePath)) {
+    removePathIfExists(targetPath);
+    return;
+  }
+
+  fs.cpSync(sourcePath, targetPath, {
+    recursive: true,
+    preserveTimestamps: true,
+    force: false,
+    errorOnExist: true,
+  });
+}
+
+function restoreSnapshotIntoCurrentData(
+  currentDataPath: string,
+  backupPath: string,
+): void {
+  const restoreCandidates = getRestoreCandidates(currentDataPath, backupPath);
+
+  for (const entryName of restoreCandidates) {
+    const sourcePath = path.join(backupPath, entryName);
+    const targetPath = path.join(currentDataPath, entryName);
+    removePathIfExists(targetPath);
+    restoreEntry(sourcePath, targetPath);
+  }
+}
+
+export async function restoreFromUpgradeBackupAsync(
+  currentDataPath: string,
+  backupId: string,
+): Promise<UpgradeBackupRestoreResult> {
+  if (typeof backupId !== "string" || backupId.trim().length === 0) {
+    return {
+      success: false,
+      needsRestart: false,
+      error: "backupId is required",
+    };
+  }
+
+  if (!fs.existsSync(currentDataPath)) {
+    return {
+      success: false,
+      needsRestart: false,
+      error: `Current data path does not exist: ${currentDataPath}`,
+    };
+  }
+
+  const backupEntry = await getUpgradeBackup(currentDataPath, backupId);
+  if (!backupEntry) {
+    return {
+      success: false,
+      needsRestart: false,
+      error: `Upgrade backup not found: ${backupId}`,
+    };
+  }
+
+  try {
+    const insuranceBackup = await createUpgradeDataSnapshot(currentDataPath, {
+      fromVersion: "pre-restore-current-state",
+      toVersion: backupEntry.manifest.fromVersion,
+    });
+
+    try {
+      restoreSnapshotIntoCurrentData(currentDataPath, backupEntry.backupPath);
+    } catch (restoreError) {
+      try {
+        restoreSnapshotIntoCurrentData(currentDataPath, insuranceBackup.backupPath);
+      } catch (rollbackError) {
+        const restoreMessage =
+          restoreError instanceof Error ? restoreError.message : String(restoreError);
+        const rollbackMessage =
+          rollbackError instanceof Error ? rollbackError.message : String(rollbackError);
+        return {
+          success: false,
+          needsRestart: false,
+          error:
+            `Restore failed and automatic rollback also failed. ` +
+            `restore=${restoreMessage}; rollback=${rollbackMessage}`,
+        };
+      }
+
+      return {
+        success: false,
+        needsRestart: false,
+        error:
+          restoreError instanceof Error ? restoreError.message : String(restoreError),
+      };
+    }
+
+    writeRestoreMarker(currentDataPath);
+
+    return {
+      success: true,
+      needsRestart: true,
+      restoredBackupId: backupId,
+      currentStateBackupPath: insuranceBackup.backupPath,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      needsRestart: false,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+}

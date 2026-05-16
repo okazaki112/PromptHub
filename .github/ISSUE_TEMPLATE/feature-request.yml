@@ -1,0 +1,80 @@
+name: "Feature Request"
+description: "Suggest a product improvement, workflow enhancement, or new capability."
+title: "[Feature]: "
+labels: ["enhancement", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for sharing an idea.
+        Please explain the user problem first, then describe the solution you want.
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: "Area"
+      description: "Which area would this improve?"
+      options:
+        - "Desktop app"
+        - "Self-hosted web"
+        - "CLI"
+        - "Sync / backup / restore"
+        - "Skill Store / Skills"
+        - "Settings / updates"
+        - "Documentation"
+        - "Other"
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: "Target version"
+      description: "Planned version, current version you are blocked on, or the build where this request was observed. PromptHub will turn this into a version label automatically."
+      placeholder: "e.g. 0.5.5, 0.5.6-beta.1, main@abc1234"
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: "Problem to solve"
+      description: "What user pain point or limitation does this address?"
+      placeholder: "Describe the current friction or missing capability."
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: "Proposed solution"
+      description: "Describe the behavior, UX, or API you want."
+      placeholder: "Explain the ideal outcome."
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: "Alternatives considered"
+      description: "Optional. What workarounds or alternative designs did you consider?"
+    validations:
+      required: false
+
+  - type: textarea
+    id: context
+    attributes:
+      label: "Additional context"
+      description: "Add screenshots, examples, or references if helpful."
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: "Before submitting"
+      options:
+        - label: "I searched existing issues and did not find an obvious duplicate."
+          required: true
+        - label: "This request is focused on one user problem or product improvement."
+          required: true

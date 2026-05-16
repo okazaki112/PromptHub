@@ -1,0 +1,150 @@
+import { ipcMain } from 'electron';
+import Database from '../database/sqlite';
+import { registerPromptIPC } from './prompt.ipc';
+import { registerFolderIPC } from './folder.ipc';
+import { registerSettingsIPC } from './settings.ipc';
+import { registerImageIPC } from './image.ipc';
+import { registerRulesIPC } from './rules.ipc';
+import { registerSkillIPC } from './skill.ipc';
+import { registerAIIPC } from './ai.ipc';
+import { PromptDB } from '../database/prompt';
+import { FolderDB } from '../database/folder';
+import { SkillDB } from '../database/skill';
+import { registerSecurityIPC } from './security.ipc';
+import { registerBackupIPC } from './backup.ipc';
+import { registerCliIPC } from './cli.ipc';
+import { IPC_CHANNELS } from '@prompthub/shared/constants/ipc-channels';
+
+const REBINDABLE_DB_CHANNELS = [
+  IPC_CHANNELS.PROMPT_CREATE,
+  IPC_CHANNELS.PROMPT_GET,
+  IPC_CHANNELS.PROMPT_GET_ALL,
+  IPC_CHANNELS.PROMPT_UPDATE,
+  IPC_CHANNELS.PROMPT_DELETE,
+  IPC_CHANNELS.PROMPT_SEARCH,
+  IPC_CHANNELS.PROMPT_COPY,
+  IPC_CHANNELS.PROMPT_INSERT_DIRECT,
+  IPC_CHANNELS.PROMPT_SYNC_WORKSPACE,
+  IPC_CHANNELS.PROMPT_MIGRATE_IDB_BATCH,
+  IPC_CHANNELS.VERSION_GET_ALL,
+  IPC_CHANNELS.VERSION_CREATE,
+  IPC_CHANNELS.VERSION_ROLLBACK,
+  IPC_CHANNELS.VERSION_DELETE,
+  IPC_CHANNELS.VERSION_INSERT_DIRECT,
+  IPC_CHANNELS.FOLDER_CREATE,
+  IPC_CHANNELS.FOLDER_GET_ALL,
+  IPC_CHANNELS.FOLDER_UPDATE,
+  IPC_CHANNELS.FOLDER_DELETE,
+  IPC_CHANNELS.FOLDER_REORDER,
+  IPC_CHANNELS.FOLDER_INSERT_DIRECT,
+  IPC_CHANNELS.SETTINGS_GET,
+  IPC_CHANNELS.SETTINGS_SET,
+  IPC_CHANNELS.CLI_STATUS,
+  IPC_CHANNELS.CLI_INSTALL,
+  IPC_CHANNELS.RULES_LIST,
+  IPC_CHANNELS.RULES_SCAN,
+  IPC_CHANNELS.RULES_READ,
+  IPC_CHANNELS.RULES_SAVE,
+  IPC_CHANNELS.RULES_REWRITE,
+  IPC_CHANNELS.RULES_ADD_PROJECT,
+  IPC_CHANNELS.RULES_REMOVE_PROJECT,
+  IPC_CHANNELS.RULES_IMPORT_RECORDS,
+  IPC_CHANNELS.SECURITY_SET_MASTER_PASSWORD,
+  IPC_CHANNELS.SECURITY_CHANGE_MASTER_PASSWORD,
+  IPC_CHANNELS.SECURITY_UNLOCK,
+  IPC_CHANNELS.SECURITY_STATUS,
+  IPC_CHANNELS.SECURITY_LOCK,
+  IPC_CHANNELS.SKILL_CREATE,
+  IPC_CHANNELS.SKILL_GET,
+  IPC_CHANNELS.SKILL_GET_ALL,
+  IPC_CHANNELS.SKILL_UPDATE,
+  IPC_CHANNELS.SKILL_DELETE,
+  IPC_CHANNELS.SKILL_SEARCH,
+  IPC_CHANNELS.SKILL_EXPORT,
+  IPC_CHANNELS.SKILL_IMPORT,
+  IPC_CHANNELS.SKILL_SCAN_LOCAL,
+  IPC_CHANNELS.SKILL_SCAN_LOCAL_PREVIEW,
+  IPC_CHANNELS.SKILL_SCAN_SAFETY,
+  IPC_CHANNELS.SKILL_SAVE_SAFETY_REPORT,
+  IPC_CHANNELS.SKILL_INSTALL_TO_PLATFORM,
+  IPC_CHANNELS.SKILL_UNINSTALL_FROM_PLATFORM,
+  IPC_CHANNELS.SKILL_GET_PLATFORM_STATUS,
+  IPC_CHANNELS.SKILL_GET_SUPPORTED_PLATFORMS,
+  IPC_CHANNELS.SKILL_DETECT_PLATFORMS,
+  IPC_CHANNELS.SKILL_INSTALL_MD,
+  IPC_CHANNELS.SKILL_UNINSTALL_MD,
+  IPC_CHANNELS.SKILL_GET_MD_INSTALL_STATUS,
+  IPC_CHANNELS.SKILL_GET_MD_INSTALL_STATUS_BATCH,
+  IPC_CHANNELS.SKILL_INSTALL_MD_SYMLINK,
+  IPC_CHANNELS.SKILL_FETCH_REMOTE_CONTENT,
+  IPC_CHANNELS.SKILL_LIST_LOCAL_FILES,
+  IPC_CHANNELS.SKILL_LIST_LOCAL_FILES_BY_PATH,
+  IPC_CHANNELS.SKILL_READ_LOCAL_FILE,
+  IPC_CHANNELS.SKILL_READ_LOCAL_FILE_BY_PATH,
+  IPC_CHANNELS.SKILL_READ_LOCAL_FILES,
+  IPC_CHANNELS.SKILL_RENAME_LOCAL_PATH,
+  IPC_CHANNELS.SKILL_RENAME_LOCAL_PATH_BY_PATH,
+  IPC_CHANNELS.SKILL_WRITE_LOCAL_FILE,
+  IPC_CHANNELS.SKILL_WRITE_LOCAL_FILE_BY_PATH,
+  IPC_CHANNELS.SKILL_DELETE_LOCAL_FILE,
+  IPC_CHANNELS.SKILL_DELETE_LOCAL_FILE_BY_PATH,
+  IPC_CHANNELS.SKILL_CREATE_LOCAL_DIR,
+  IPC_CHANNELS.SKILL_CREATE_LOCAL_DIR_BY_PATH,
+  IPC_CHANNELS.SKILL_SAVE_TO_REPO,
+  IPC_CHANNELS.SKILL_GET_REPO_PATH,
+  IPC_CHANNELS.SKILL_SYNC_FROM_REPO,
+  IPC_CHANNELS.SKILL_EXPORT_ZIP,
+  IPC_CHANNELS.SKILL_VERSION_GET_ALL,
+  IPC_CHANNELS.SKILL_VERSION_CREATE,
+  IPC_CHANNELS.SKILL_VERSION_ROLLBACK,
+  IPC_CHANNELS.SKILL_VERSION_DELETE,
+  IPC_CHANNELS.SKILL_DELETE_ALL,
+  IPC_CHANNELS.SKILL_INSERT_VERSION_DIRECT,
+  IPC_CHANNELS.UPGRADE_BACKUP_LIST,
+  IPC_CHANNELS.UPGRADE_BACKUP_CREATE,
+  IPC_CHANNELS.UPGRADE_BACKUP_RESTORE,
+  IPC_CHANNELS.UPGRADE_BACKUP_DELETE,
+] as const;
+
+function resetAllRegisteredIpcHandlers(): void {
+  for (const channel of REBINDABLE_DB_CHANNELS) {
+    ipcMain.removeHandler(channel);
+  }
+}
+
+function registerIpcGroup(label: string, register: () => void): void {
+  try {
+    register();
+  } catch (error) {
+    console.error(`[ipc] Failed to register ${label} handlers:`, error);
+    throw error;
+  }
+}
+
+/**
+ * Register all IPC handlers
+ * 注册所有 IPC 处理器
+ */
+export function registerAllIPC(
+  db: Database.Database,
+  setDbRef: (db: Database.Database) => void,
+): void {
+  resetAllRegisteredIpcHandlers();
+
+  const promptDB = new PromptDB(db);
+  const folderDB = new FolderDB(db);
+  const skillDB = new SkillDB(db);
+
+  registerIpcGroup("prompt", () => registerPromptIPC(promptDB, folderDB, db));
+  registerIpcGroup("folder", () => registerFolderIPC(folderDB, promptDB));
+  registerIpcGroup("rules", () => registerRulesIPC());
+  registerIpcGroup("settings", () => registerSettingsIPC(db));
+  registerIpcGroup("security", () => registerSecurityIPC(db));
+  registerIpcGroup("backup", () =>
+    registerBackupIPC(setDbRef, (nextDb) => registerAllIPC(nextDb, setDbRef)),
+  );
+  registerIpcGroup("cli", () => registerCliIPC());
+  registerIpcGroup("skill", () => registerSkillIPC(skillDB));
+  registerIpcGroup("image", () => registerImageIPC());
+  registerIpcGroup("ai", () => registerAIIPC());
+}

@@ -1,0 +1,2458 @@
+import type { AITransportResponse } from "@prompthub/shared/types";
+import type { AIProtocol } from "@prompthub/shared/types";
+
+/**
+ * AI Service - Call various AI model APIs
+ * Most domestic and international service providers are compatible with OpenAI format
+ * AI 服务 - 调用各种 AI 模型 API
+ * 大部分国内外服务商都兼容 OpenAI 格式
+ */
+
+export interface ChatImageAttachment {
+  name?: string;
+  mimeType: string;
+  base64: string;
+}
+
+export type ChatMessageContentPart =
+  | { type: "text"; text: string }
+  | {
+      type: "image_url";
+      image_url: {
+        url: string;
+        detail?: "auto" | "low" | "high";
+      };
+    };
+
+export type ChatMessageContent = string | ChatMessageContentPart[];
+
+type AnthropicMessageContentPart =
+  | { type: "text"; text: string }
+  | {
+      type: "image";
+      source: {
+        type: "base64";
+        media_type: string;
+        data: string;
+      };
+    };
+
+export interface ChatMessage {
+  role: "system" | "user" | "assistant";
+  content: ChatMessageContent;
+}
+
+export interface ChatCompletionRequest {
+  messages: ChatMessage[];
+  model: string;
+  temperature?: number;
+  max_tokens?: number;
+  max_completion_tokens?: number; // 新版 OpenAI 模型（o1, gpt-5 等）使用此参数
+  top_p?: number;
+  top_k?: number;
+  frequency_penalty?: number;
+  presence_penalty?: number;
+  stream?: boolean;
+  enable_thinking?: boolean;
+  // Output format: undefined = text, { type: 'json_object' } = JSON mode, { type: 'json_schema', ... } = JSON Schema
+  // 输出格式：undefined = 文本，{ type: 'json_object' } = JSON 模式，{ type: 'json_schema', ... } = JSON Schema
+  response_format?: {
+    type: "text" | "json_object" | "json_schema";
+    json_schema?: {
+      name: string;
+      strict?: boolean;
+      schema: Record<string, unknown>;
+    };
+  };
+}
+
+export interface ChatCompletionResponse {
+  id: string;
+  choices: {
+    index: number;
+    message: ChatMessage & {
+      reasoning_content?: string; // 思考模型的思考内容 / Thinking content for reasoning models
+    };
+    finish_reason: string;
+    delta?: {
+      content?: string;
+      reasoning_content?: string;
+    };
+  }[];
+  usage?: {
+    prompt_tokens: number;
+    completion_tokens: number;
+    total_tokens: number;
+  };
+}
+
+// Chat model parameters
+// 对话模型参数
+export interface ChatParams {
+  temperature?: number; // 温度 (0-2) / Temperature
+  maxTokens?: number; // 最大 token 数 / Max tokens
+  topP?: number; // Top-P 采样 / Top-P sampling
+  topK?: number; // Top-K 采样 / Top-K sampling
+  frequencyPenalty?: number; // 频率惩罚 / Frequency penalty
+  presencePenalty?: number; // 存在惩罚 / Presence penalty
+  stream?: boolean; // 流式输出 / Streaming output
+  enableThinking?: boolean; // 思考模式 / Thinking mode
+  customParams?: Record<string, string | number | boolean>; // 自定义参数 / Custom parameters
+}
+
+// Image model parameters
+// 图像模型参数
+export interface ImageParams {
+  size?: string;
+  quality?: "standard" | "hd";
+  style?: "vivid" | "natural";
+  n?: number;
+}
+
+export interface ImageReferenceAttachment {
+  name?: string;
+  mimeType: string;
+  base64: string;
+}
+
+export interface AIConfig {
+  // 可选：用于区分同名模型（多模型对比的流式回调映射）
+  // Optional: Used to distinguish models with the same name (for multi-model comparison streaming callback mapping)
+  id?: string;
+  provider: string;
+  apiProtocol: AIProtocol;
+  apiKey: string;
+  apiUrl: string;
+  model: string;
+  type?: "chat" | "image"; // 模型类型 / Model type
+  chatParams?: ChatParams;
+  imageParams?: ImageParams;
+}
+
+// ============ 图像生成相关接口 ============
+// ============ Image Generation Related Interfaces ============
+
+export interface ImageGenerationRequest {
+  prompt: string;
+  model?: string;
+  n?: number;
+  size?: "256x256" | "512x512" | "1024x1024" | "1024x1792" | "1792x1024";
+  quality?: "standard" | "hd";
+  style?: "vivid" | "natural";
+  response_format?: "url" | "b64_json";
+}
+
+export interface ImageGenerationResponse {
+  created: number;
+  data: {
+    url?: string;
+    b64_json?: string;
+    revised_prompt?: string;
+  }[];
+}
+
+export interface ImageTestResult {
+  success: boolean;
+  imageUrl?: string;
+  imageBase64?: string;
+  revisedPrompt?: string;
+  error?: string;
+  latency?: number;
+  model: string;
+  provider: string;
+}
+
+// Streaming output callback interface
+// 流式输出回调接口
+export interface StreamCallbacks {
+  onContent?: (chunk: string) => void; // 内容块回调 / Content chunk callback
+  onThinking?: (chunk: string) => void; // 思考内容回调 / Thinking content callback
+  onComplete?: (fullContent: string, thinkingContent?: string) => void; // 完成回调 / Completion callback
+}
+
+// Chat completion result
+// 对话完成结果
+export interface ChatCompletionResult {
+  content: string;
+  thinkingContent?: string;
+}
+
+interface ResponseLike {
+  ok: boolean;
+  status: number;
+  statusText: string;
+  headers: Record<string, string>;
+  text: () => Promise<string>;
+  json: <T = unknown>() => Promise<T>;
+}
+
+interface StreamState {
+  fullContent: string;
+  thinkingContent: string;
+  buffer: string;
+  chunkCount: number;
+}
+
+type ResolvedProtocol = {
+  protocol: AIProtocol;
+  explicit: boolean;
+  baseUrl: string;
+};
+
+function resolveAIProtocol(config: Pick<AIConfig, "apiProtocol" | "provider" | "apiUrl">): AIProtocol {
+  if (config.apiProtocol === "openai" || config.apiProtocol === "gemini" || config.apiProtocol === "anthropic") {
+    return config.apiProtocol;
+  }
+
+  const provider = config.provider?.toLowerCase() || "";
+  const apiUrl = config.apiUrl?.toLowerCase() || "";
+
+  if (provider === "anthropic" || apiUrl.includes("api.anthropic.com")) {
+    return "anthropic";
+  }
+
+  if (provider === "google" || provider === "gemini" || apiUrl.includes("generativelanguage.googleapis.com")) {
+    return "gemini";
+  }
+
+  return "openai";
+}
+
+function resolveProtocolBase(apiUrl: string, protocol: AIProtocol): ResolvedProtocol {
+  const trimmed = apiUrl.trim();
+  const explicit = trimmed.endsWith("#");
+  const rawValue = explicit ? trimmed.slice(0, -1) : trimmed;
+  const baseUrl = getBaseUrl(rawValue);
+
+  return {
+    protocol,
+    explicit,
+    baseUrl,
+  };
+}
+
+function buildChatEndpointFromBase(resolved: ResolvedProtocol): string {
+  const baseUrl = resolved.baseUrl.replace(/\/$/, "");
+  if (!baseUrl) {
+    return "";
+  }
+
+  if (resolved.explicit) {
+    return baseUrl;
+  }
+
+  if (resolved.protocol === "gemini") {
+    if (baseUrl.endsWith("/openai")) {
+      return `${baseUrl}/chat/completions`;
+    }
+    if (baseUrl.match(/\/v\d+(?:beta)?$/)) {
+      return `${baseUrl}/openai/chat/completions`;
+    }
+    return `${baseUrl}/v1beta/openai/chat/completions`;
+  }
+
+  if (resolved.protocol === "anthropic") {
+    if (baseUrl.match(/\/v\d+$/)) {
+      return `${baseUrl}/messages`;
+    }
+    return `${baseUrl}/v1/messages`;
+  }
+
+  if (baseUrl.match(/\/v\d+$/)) {
+    return `${baseUrl}/chat/completions`;
+  }
+
+  return `${baseUrl}/v1/chat/completions`;
+}
+
+function buildModelsEndpointFromBase(resolved: ResolvedProtocol): string {
+  const baseUrl = resolved.baseUrl.replace(/\/$/, "");
+  if (!baseUrl) {
+    return "";
+  }
+
+  if (resolved.protocol === "gemini") {
+    const geminiBaseUrl = baseUrl.replace(/\/openai$/, "");
+    if (geminiBaseUrl.match(/\/v\d+(?:beta)?$/)) {
+      return `${geminiBaseUrl}/models`;
+    }
+    return `${geminiBaseUrl}/v1beta/models`;
+  }
+
+  if (resolved.protocol === "anthropic") {
+    if (baseUrl.match(/\/v\d+$/)) {
+      return `${baseUrl}/models`;
+    }
+    return `${baseUrl}/v1/models`;
+  }
+
+  if (baseUrl.match(/\/v\d+$/)) {
+    return `${baseUrl}/models`;
+  }
+
+  return `${baseUrl}/v1/models`;
+}
+
+function buildHeadersForProtocol(
+  protocol: AIProtocol,
+  apiKey: string,
+  options?: { accept?: string; contentType?: boolean; useNativeGeminiAuth?: boolean },
+): Record<string, string> {
+  const headers: Record<string, string> = {};
+  if (options?.contentType !== false) {
+    headers["Content-Type"] = "application/json";
+  }
+  if (options?.accept) {
+    headers.Accept = options.accept;
+  }
+
+  if (protocol === "anthropic") {
+    headers["x-api-key"] = apiKey;
+    headers["anthropic-version"] = "2023-06-01";
+    return headers;
+  }
+
+  if (protocol === "gemini" && options?.useNativeGeminiAuth) {
+    headers["x-goog-api-key"] = apiKey;
+    return headers;
+  }
+
+  headers.Authorization = `Bearer ${apiKey}`;
+  return headers;
+}
+
+function getAITransport() {
+  if (typeof window === "undefined") {
+    return null;
+  }
+  return window.api?.ai ?? null;
+}
+
+function createResponseLike(response: AITransportResponse): ResponseLike {
+  return {
+    ok: response.ok,
+    status: response.status,
+    statusText: response.statusText,
+    headers: response.headers,
+    text: async () => response.body,
+    json: async <T = unknown>() => JSON.parse(response.body) as T,
+  };
+}
+
+function createFetchResponseLike(response: Response): ResponseLike {
+  return {
+    ok: response.ok,
+    status: response.status,
+    statusText: response.statusText,
+    headers: Object.fromEntries(response.headers.entries()),
+    text: async () => response.text(),
+    json: async <T = unknown>() => response.json() as Promise<T>,
+  };
+}
+
+function createStreamState(): StreamState {
+  return {
+    fullContent: "",
+    thinkingContent: "",
+    buffer: "",
+    chunkCount: 0,
+  };
+}
+
+function isGeminiApiHost(apiUrl: string): boolean {
+  return apiUrl.includes("generativelanguage.googleapis.com");
+}
+
+function isGeminiOpenAICompatEndpoint(endpoint: string): boolean {
+  return endpoint.includes("generativelanguage.googleapis.com") && endpoint.includes("/openai/");
+}
+
+function yieldToEventLoop() {
+  return new Promise<void>((resolve) => {
+    if (typeof requestAnimationFrame === "function") {
+      requestAnimationFrame(() => resolve());
+    } else {
+      setTimeout(resolve, 0);
+    }
+  });
+}
+
+async function processStreamTextChunk(
+  chunkText: string,
+  state: StreamState,
+  onStream?: (chunk: string) => void,
+  streamCallbacks?: StreamCallbacks,
+  options?: {
+    flush?: boolean;
+    yieldToUi?: boolean;
+  },
+): Promise<void> {
+  state.buffer += chunkText;
+  const lines = state.buffer.split("\n");
+  state.buffer = options?.flush ? "" : lines.pop() || "";
+  let deltasSinceYield = 0;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed === "data: [DONE]") continue;
+    if (!trimmed.startsWith("data: ")) continue;
+
+    try {
+      const json = JSON.parse(trimmed.slice(6));
+      const delta = json.choices?.[0]?.delta;
+
+      if (!delta) {
+        continue;
+      }
+
+      state.chunkCount++;
+      deltasSinceYield++;
+
+      if (delta.reasoning_content) {
+        state.thinkingContent += delta.reasoning_content;
+        streamCallbacks?.onThinking?.(delta.reasoning_content);
+      }
+
+      if (delta.content) {
+        state.fullContent += delta.content;
+        onStream?.(delta.content);
+        streamCallbacks?.onContent?.(delta.content);
+        if (state.chunkCount === 1) {
+          console.log(
+            "[AI Stream] First content chunk received:",
+            delta.content.slice(0, 50),
+          );
+        }
+      }
+
+      if (options?.yieldToUi && deltasSinceYield >= 20) {
+        deltasSinceYield = 0;
+        await yieldToEventLoop();
+      }
+    } catch {
+      // 忽略解析错误 / Ignore parse errors
+    }
+  }
+
+  if (options?.yieldToUi) {
+    if (state.chunkCount > 0 && state.chunkCount % 50 === 0) {
+      console.log(
+        `[AI Stream] Yielding at chunk ${state.chunkCount}, content length: ${state.fullContent.length}`,
+      );
+    }
+    await yieldToEventLoop();
+  }
+}
+
+function finalizeStreamState(
+  state: StreamState,
+  streamCallbacks?: StreamCallbacks,
+): ChatCompletionResult {
+  streamCallbacks?.onComplete?.(
+    state.fullContent,
+    state.thinkingContent || undefined,
+  );
+
+  return {
+    content: state.fullContent,
+    thinkingContent: state.thinkingContent || undefined,
+  };
+}
+
+function normalizeAssistantContent(content: ChatMessageContent): string {
+  if (typeof content === "string") {
+    return content;
+  }
+
+  return content
+    .filter((part): part is Extract<ChatMessageContentPart, { type: "text" }> =>
+      part.type === "text",
+    )
+    .map((part) => part.text)
+    .join("");
+}
+
+function toAnthropicMessageContent(content: ChatMessageContent): string | AnthropicMessageContentPart[] {
+  if (typeof content === "string") {
+    return content;
+  }
+
+  const parts = content.flatMap((part): AnthropicMessageContentPart[] => {
+    if (part.type === "text") {
+      return [{ type: "text", text: part.text }];
+    }
+
+    if (part.type === "image_url") {
+      const match = part.image_url.url.match(/^data:(.+?);base64,(.+)$/);
+      if (!match) {
+        return [];
+      }
+
+      return [
+        {
+          type: "image",
+          source: {
+            type: "base64",
+            media_type: match[1],
+            data: match[2],
+          },
+        },
+      ];
+    }
+
+    return [];
+  });
+
+  return parts.length > 0 ? parts : "";
+}
+
+async function getErrorMessageFromResponse(
+  response: ResponseLike,
+): Promise<string> {
+  const errorText = await response.text();
+  let errorMessage = `API 请求失败 (${response.status})`;
+
+  try {
+    const errorJson = JSON.parse(errorText);
+    errorMessage =
+      errorJson.error?.message || errorJson.message || errorMessage;
+  } catch {
+    if (errorText) {
+      errorMessage = errorText.slice(0, 200);
+    }
+  }
+
+  return errorMessage;
+}
+
+/**
+ * 调用 AI 模型进行对话（支持流式输出和思考模型）
+ * Call AI model for chat (supports streaming and thinking models)
+ */
+export async function chatCompletion(
+  config: AIConfig,
+  messages: ChatMessage[],
+  options?: {
+    temperature?: number;
+    maxTokens?: number;
+    topP?: number;
+    topK?: number;
+    frequencyPenalty?: number;
+    presencePenalty?: number;
+    stream?: boolean;
+    enableThinking?: boolean;
+    onStream?: (chunk: string) => void; // 兼容旧版 / Legacy compatibility
+    streamCallbacks?: StreamCallbacks;
+    // Output format options / 输出格式选项
+    responseFormat?: {
+      type: "text" | "json_object" | "json_schema";
+      jsonSchema?: {
+        name: string;
+        strict?: boolean;
+        schema: Record<string, unknown>;
+      };
+    };
+  },
+): Promise<ChatCompletionResult> {
+  const { provider, apiKey, apiUrl, model, chatParams } = config;
+  const providerId = provider?.toLowerCase() || "";
+  const protocol = resolveAIProtocol(config);
+  const isGemini = protocol === "gemini";
+  const isAnthropic = protocol === "anthropic";
+  const normalizedModel = isGemini ? model.replace(/^models\//, "") : model;
+
+  if (!apiKey) {
+    throw new Error("API Key is not configured");
+  }
+
+  if (!apiUrl) {
+    throw new Error("API URL is not configured");
+  }
+
+  if (!model) {
+    throw new Error("No model selected");
+  }
+
+  const endpoint = buildChatEndpointFromBase(resolveProtocolBase(apiUrl, protocol));
+
+  // 合并参数：config.chatParams < options（options 优先级更高）
+  // Merge parameters: config.chatParams < options (options takes precedence)
+  const mergedParams = {
+    temperature: options?.temperature ?? chatParams?.temperature ?? 0.7,
+    maxTokens: options?.maxTokens ?? chatParams?.maxTokens ?? 2048,
+    topP: options?.topP ?? chatParams?.topP,
+    topK: options?.topK ?? chatParams?.topK,
+    frequencyPenalty: options?.frequencyPenalty ?? chatParams?.frequencyPenalty,
+    presencePenalty: options?.presencePenalty ?? chatParams?.presencePenalty,
+    stream: options?.stream ?? chatParams?.stream ?? false,
+    enableThinking:
+      options?.enableThinking ?? chatParams?.enableThinking ?? false,
+  };
+
+  if (isAnthropic) {
+    mergedParams.stream = false;
+  }
+
+  // 构建请求头 / Build request headers
+  const headers = buildHeadersForProtocol(protocol, apiKey, {
+    accept: mergedParams.stream ? "text/event-stream" : "application/json",
+  });
+
+  // 检测是否为需要 max_completion_tokens 的新模型
+  // Detect if it's a new model that requires max_completion_tokens
+  // Updated for Issue #21: Support automatic fallback/retry for token parameters
+  const modelLower = model.toLowerCase();
+  let useMaxCompletionTokens =
+    modelLower.includes("o1") ||
+    modelLower.includes("o3") ||
+    modelLower.includes("gpt-4o") ||
+    modelLower.includes("gpt-4.5") ||
+    /gpt-[5-9]/.test(modelLower) || // Matches gpt-5, gpt-5.2, gpt-6, etc.
+    providerId.includes("openai");
+
+  // 构建请求体 / Build request body
+  const body: ChatCompletionRequest = {
+    model: normalizedModel,
+    messages,
+    temperature: mergedParams.temperature,
+    stream: mergedParams.stream,
+  };
+
+  if (isAnthropic) {
+    const anthropicMessages = messages
+      .filter((message) => message.role !== "system")
+      .map((message) => ({
+        role: message.role === "assistant" ? "assistant" : "user",
+        content: toAnthropicMessageContent(message.content),
+      }));
+
+    const anthropicBody: Record<string, unknown> = {
+      model,
+      max_tokens: mergedParams.maxTokens,
+      messages: anthropicMessages,
+      stream: false,
+    };
+
+    const systemMessage = messages.find((message) => message.role === "system");
+    if (systemMessage) {
+      anthropicBody.system = normalizeAssistantContent(systemMessage.content);
+    }
+
+    const requestBody = JSON.stringify(anthropicBody);
+    const transport = getAITransport();
+    const response = transport
+      ? createResponseLike(
+          await transport.request({
+            method: "POST",
+            url: endpoint,
+            headers,
+            body: requestBody,
+          }),
+        )
+      : createFetchResponseLike(
+          await fetch(endpoint, {
+            method: "POST",
+            headers,
+            body: requestBody,
+          }),
+        );
+
+    if (!response.ok) {
+      throw new Error(await getErrorMessageFromResponse(response));
+    }
+
+    const data = await response.json<{
+      content?: Array<{ type?: string; text?: string }>;
+    }>();
+    const content = (data.content || [])
+      .filter((item) => item?.type === "text" && typeof item.text === "string")
+      .map((item) => item.text)
+      .join("");
+
+    if (!content) {
+      throw new Error("AI returned an unexpected response format");
+    }
+
+    return {
+      content,
+    };
+  }
+
+  // 根据模型类型选择正确的 token 限制参数
+  // Choose the correct token limit parameter based on model type
+  if (useMaxCompletionTokens) {
+    body.max_completion_tokens = mergedParams.maxTokens;
+  } else {
+    body.max_tokens = mergedParams.maxTokens;
+  }
+
+  // 添加可选参数 / Add optional parameters
+  if (mergedParams.topP !== undefined) {
+    body.top_p = mergedParams.topP;
+  }
+  if (mergedParams.topK !== undefined) {
+    body.top_k = mergedParams.topK;
+  }
+  if (!isGemini && mergedParams.frequencyPenalty !== undefined) {
+    body.frequency_penalty = mergedParams.frequencyPenalty;
+  }
+  if (!isGemini && mergedParams.presencePenalty !== undefined) {
+    body.presence_penalty = mergedParams.presencePenalty;
+  }
+
+  // 检测是否为 Qwen 模型 / Detect if Qwen model
+  const isQwen =
+    providerId.includes("qwen") ||
+    providerId.includes("dashscope") ||
+    model.toLowerCase().includes("qwen");
+
+  // 处理思考模式 / Handle thinking mode
+  // 只有在流式模式下才能启用思考，非流式必须禁用
+  if (isQwen) {
+    if (mergedParams.stream && mergedParams.enableThinking) {
+      body.enable_thinking = true;
+    } else {
+      body.enable_thinking = false;
+    }
+  } else if (mergedParams.enableThinking) {
+    // 其他支持思考的模型（如 DeepSeek）
+    body.enable_thinking = true;
+  }
+
+  // 处理自定义参数 / Handle custom parameters
+  const customParams = chatParams?.customParams;
+  if (customParams && typeof customParams === "object") {
+    const bodyAny = body as unknown as Record<string, unknown>;
+    for (const [key, value] of Object.entries(customParams)) {
+      if (key && value !== undefined && value !== "") {
+        bodyAny[key] = value;
+      }
+    }
+  }
+
+  // 处理输出格式 / Handle response format (Issue #38)
+  if (options?.responseFormat && options.responseFormat.type !== "text") {
+    if (options.responseFormat.type === "json_object") {
+      body.response_format = { type: "json_object" };
+    } else if (
+      options.responseFormat.type === "json_schema" &&
+      options.responseFormat.jsonSchema
+    ) {
+      body.response_format = {
+        type: "json_schema",
+        json_schema: {
+          name: options.responseFormat.jsonSchema.name,
+          strict: options.responseFormat.jsonSchema.strict ?? true,
+          schema: options.responseFormat.jsonSchema.schema,
+        },
+      };
+    }
+  }
+
+  const transport = getAITransport();
+
+  const sendRequest = async (): Promise<{
+    streamResult?: ChatCompletionResult;
+    response?: ResponseLike;
+  }> => {
+    const requestBody = JSON.stringify(body);
+
+    if (mergedParams.stream && transport) {
+      const streamState = createStreamState();
+      let streamError: string | null = null;
+
+      const response = await transport.requestStream(
+        {
+          method: "POST",
+          url: endpoint,
+          headers,
+          body: requestBody,
+        },
+        {
+          onChunk: (chunk) => {
+            void processStreamTextChunk(
+              chunk,
+              streamState,
+              options?.onStream,
+              options?.streamCallbacks,
+            );
+          },
+          onError: (error) => {
+            streamError = error;
+          },
+        },
+      );
+
+      if (!response.ok) {
+        return { response: createResponseLike(response) };
+      }
+
+      if (streamError) {
+        throw new Error(streamError);
+      }
+
+      await processStreamTextChunk(
+        "",
+        streamState,
+        options?.onStream,
+        options?.streamCallbacks,
+        { flush: true },
+      );
+
+      return {
+        streamResult: finalizeStreamState(
+          streamState,
+          options?.streamCallbacks,
+        ),
+      };
+    }
+
+    if (transport) {
+      const response = await transport.request({
+        method: "POST",
+        url: endpoint,
+        headers,
+        body: requestBody,
+      });
+      return { response: createResponseLike(response) };
+    }
+
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers,
+      body: requestBody,
+    });
+
+    if (mergedParams.stream) {
+      console.log("[AI Service] Starting stream response handling...");
+      return {
+        streamResult: await handleStreamResponse(
+          response,
+          options?.onStream,
+          options?.streamCallbacks,
+        ),
+      };
+    }
+
+    return { response: createFetchResponseLike(response) };
+  };
+
+  try {
+    let requestResult = await sendRequest();
+    let response = requestResult.response;
+
+    if (response && !response.ok) {
+      const errorMessage = await getErrorMessageFromResponse(response);
+
+      // Check for token parameter compatibility issues (Issue #21)
+      // 检查 Token 参数兼容性问题
+      const isTokenParamError =
+        errorMessage.includes("'max_tokens' is not supported") ||
+        errorMessage.includes("'max_completion_tokens' is not supported") ||
+        errorMessage.includes("Use 'max_completion_tokens' instead") ||
+        errorMessage.includes("Use 'max_tokens' instead");
+
+      // Check for enable_thinking compatibility issues (Issue #9)
+      // 检查 enable_thinking 参数兼容性问题 (Issue #9)
+      const isThinkingParamError =
+        errorMessage.includes("enable_thinking must be set to false") ||
+        errorMessage.includes("enable_thinking only support stream") ||
+        errorMessage.includes("parameter.enable_thinking");
+
+      if (isTokenParamError) {
+        console.warn(
+          `[AI Service] Token parameter mismatch detected: "${errorMessage}". Retrying with alternative parameter...`,
+        );
+
+        if (useMaxCompletionTokens) {
+          delete body.max_completion_tokens;
+          body.max_tokens = mergedParams.maxTokens;
+        } else {
+          delete body.max_tokens;
+          body.max_completion_tokens = mergedParams.maxTokens;
+        }
+
+        requestResult = await sendRequest();
+        response = requestResult.response;
+
+        if (response && !response.ok) {
+          throw new Error(await getErrorMessageFromResponse(response));
+        }
+      } else if (isThinkingParamError) {
+        console.warn(
+          `[AI Service] enable_thinking parameter error detected: "${errorMessage}". Retrying with enable_thinking=false...`,
+        );
+
+        body.enable_thinking = false;
+        requestResult = await sendRequest();
+        response = requestResult.response;
+
+        if (response && !response.ok) {
+          throw new Error(await getErrorMessageFromResponse(response));
+        }
+      } else {
+        throw new Error(errorMessage);
+      }
+    }
+
+    if (requestResult.streamResult) {
+      return requestResult.streamResult;
+    }
+
+    if (!response) {
+      throw new Error("AI 返回结果为空");
+    }
+
+    // 流式输出处理 / Streaming output handling
+    // Debug: Log streaming status / 调试：记录流式状态
+    console.log(
+      "[AI Service] Stream mode:",
+      mergedParams.stream,
+      "Callbacks provided:",
+      !!options?.streamCallbacks,
+    );
+
+    // 非流式响应 / Non-streaming response
+    const data: ChatCompletionResponse = await response.json();
+
+    if (!data.choices || data.choices.length === 0) {
+      throw new Error("AI 返回结果为空");
+      // AI returned empty result
+    }
+
+    const message = data.choices[0].message;
+    return {
+      content: normalizeAssistantContent(message.content),
+      thinkingContent: message.reasoning_content,
+    };
+  } catch (error) {
+    if (error instanceof Error) {
+      throw error;
+    }
+    throw new Error("网络请求失败，请检查网络连接");
+    // Network request failed, please check network connection
+  }
+}
+
+/**
+ * 处理流式响应
+ * Handle streaming response
+ */
+async function handleStreamResponse(
+  response: Response,
+  onStream?: (chunk: string) => void,
+  streamCallbacks?: StreamCallbacks,
+): Promise<ChatCompletionResult> {
+  const reader = response.body?.getReader();
+  if (!reader) {
+    throw new Error("无法读取响应流");
+    // Cannot read response stream
+  }
+
+  const decoder = new TextDecoder();
+  const state = createStreamState();
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) {
+        console.log(
+          "[AI Stream] Stream completed, total chunks:",
+          state.chunkCount,
+        );
+        break;
+      }
+
+      await processStreamTextChunk(
+        decoder.decode(value, { stream: true }),
+        state,
+        onStream,
+        streamCallbacks,
+        { yieldToUi: true },
+      );
+    }
+
+    await processStreamTextChunk(
+      decoder.decode(),
+      state,
+      onStream,
+      streamCallbacks,
+      { flush: true, yieldToUi: true },
+    );
+  } finally {
+    reader.releaseLock();
+  }
+
+  return finalizeStreamState(state, streamCallbacks);
+}
+
+export interface AITestResult {
+  // Optional: link the result back to the configured model instance
+  // 可选：用于将结果关联回具体的模型配置实例（避免同 provider/model 串台）
+  id?: string;
+  success: boolean;
+  response?: string;
+  thinkingContent?: string; // 思考内容 / Thinking content
+  error?: string;
+  latency?: number; // 响应时间 (ms)
+  model: string;
+  provider: string;
+}
+
+/**
+ * 测试 AI 配置是否可用（带详细结果，支持流式输出）
+ * Test AI configuration (with detailed results, supports streaming)
+ */
+export async function testAIConnection(
+  config: AIConfig,
+  testPrompt?: string,
+  streamCallbacks?: StreamCallbacks,
+): Promise<AITestResult> {
+  const startTime = Date.now();
+  const prompt = testPrompt || "Hello! Please respond with a brief greeting.";
+
+  // 使用配置中的参数，但限制 maxTokens 用于测试
+  // Use config parameters, but limit maxTokens for testing
+  const useStream =
+    resolveAIProtocol(config) === "anthropic"
+      ? false
+      : (config.chatParams?.stream ?? false);
+  const useThinking = config.chatParams?.enableThinking ?? false;
+
+  try {
+    const result = await chatCompletion(
+      config,
+      [{ role: "user", content: prompt }],
+      {
+        maxTokens: 2048,
+        stream: useStream,
+        enableThinking: useThinking,
+        streamCallbacks,
+      },
+    );
+
+    return {
+      id: config.id,
+      success: true,
+      response: result.content,
+      thinkingContent: result.thinkingContent,
+      latency: Date.now() - startTime,
+      model: config.model,
+      provider: config.provider,
+    };
+  } catch (error) {
+    return {
+      id: config.id,
+      success: false,
+      error: error instanceof Error ? error.message : "未知错误",
+      latency: Date.now() - startTime,
+      model: config.model,
+      provider: config.provider,
+    };
+  }
+}
+
+/**
+ * 并行测试多个 AI 配置（用于对比）
+ * Test multiple AI configurations in parallel (for comparison)
+ */
+export async function compareAIModels(
+  configs: AIConfig[],
+  testPrompt: string,
+): Promise<AITestResult[]> {
+  const promises = configs.map((config) =>
+    testAIConnection(config, testPrompt),
+  );
+  return Promise.all(promises);
+}
+
+// ============ 图像生成功能 ============
+// ============ Image Generation Functionality ============
+
+/**
+ * 调用图像生成模型
+ * 支持多种供应商：OpenAI, FLUX, Ideogram, Recraft, Stability AI, Replicate 等
+ * Call image generation model
+ * Supports multiple providers: OpenAI, FLUX, Ideogram, Recraft, Stability AI, Replicate, etc.
+ */
+export async function generateImage(
+  config: AIConfig,
+  prompt: string,
+  options?: {
+    size?: string; // 不同 API 支持不同的尺寸格式 / Different APIs support different size formats
+    quality?: "standard" | "hd";
+    style?: "vivid" | "natural";
+    n?: number;
+    response_format?: "url" | "b64_json";
+    aspect_ratio?: string; // FLUX/Ideogram 使用
+    referenceImages?: ImageReferenceAttachment[];
+  },
+): Promise<ImageGenerationResponse> {
+  const { apiKey, apiUrl, model, provider } = config;
+  const mergedOptions = {
+    ...config.imageParams,
+    ...options,
+  };
+
+  if (!apiKey) {
+    throw new Error("API Key is not configured");
+  }
+
+  if (!apiUrl) {
+    throw new Error("API URL is not configured");
+  }
+
+  // 根据供应商选择不同的 API 调用方式
+  // Choose different API calling methods based on provider
+  const providerLower = (provider || "").toLowerCase();
+  const modelLower = (model || "").toLowerCase();
+
+  // FLUX (Black Forest Labs)
+  if (providerLower === "flux" || apiUrl.includes("bfl.ai")) {
+    return await generateImageFlux(
+      apiKey,
+      apiUrl,
+      model,
+      prompt,
+      mergedOptions,
+    );
+  }
+
+  // Ideogram
+  if (providerLower === "ideogram" || apiUrl.includes("ideogram.ai")) {
+    return await generateImageIdeogram(
+      apiKey,
+      apiUrl,
+      model,
+      prompt,
+      mergedOptions,
+    );
+  }
+
+  // Recraft
+  if (providerLower === "recraft" || apiUrl.includes("recraft.ai")) {
+    return await generateImageRecraft(
+      apiKey,
+      apiUrl,
+      model,
+      prompt,
+      mergedOptions,
+    );
+  }
+
+  // Replicate
+  if (providerLower === "replicate" || apiUrl.includes("replicate.com")) {
+    return await generateImageReplicate(apiKey, model, prompt, mergedOptions);
+  }
+
+  // Stability AI
+  if (providerLower === "stability" || apiUrl.includes("stability.ai")) {
+    return await generateImageStability(
+      apiKey,
+      apiUrl,
+      model,
+      prompt,
+      mergedOptions,
+    );
+  }
+
+  // Google/Gemini Image Generation (uses generateContent API, not OpenAI format)
+  // Match on provider='google'/'gemini', URL containing googleapis, or model name heuristics
+  if (
+    providerLower === "google" ||
+    providerLower === "gemini" ||
+    apiUrl.includes("generativelanguage.googleapis.com") ||
+    (modelLower.includes("gemini") &&
+      (modelLower.includes("image") || modelLower.includes("imagen")))
+  ) {
+    return await generateImageGemini(
+      apiKey,
+      apiUrl,
+      model,
+      prompt,
+      mergedOptions,
+    );
+  }
+
+  // OpenAI-compatible format (includes OpenAI, Azure, etc.)
+  return await generateImageOpenAI(
+    apiKey,
+    apiUrl,
+    model,
+    prompt,
+    mergedOptions,
+  );
+}
+
+// Google Gemini Image Generation via generateContent API
+// Google Gemini 通过 generateContent API 生成图片
+async function generateImageGemini(
+  apiKey: string,
+  apiUrl: string,
+  model: string,
+  prompt: string,
+  options?: { n?: number; referenceImages?: ImageReferenceAttachment[] },
+): Promise<ImageGenerationResponse> {
+  // Build endpoint - Gemini uses generateContent
+  // 构建端点 - Gemini 使用 generateContent
+  let endpoint = apiUrl.replace(/\/$/, "");
+
+  // Handle different URL formats
+  if (endpoint.includes("/chat/completions")) {
+    endpoint = endpoint.replace("/chat/completions", "");
+  }
+  if (endpoint.includes("/v1beta")) {
+    endpoint = `${endpoint}/models/${model}:generateContent`;
+  } else if (endpoint.includes("/v1")) {
+    endpoint = endpoint.replace("/v1", "/v1beta");
+    endpoint = `${endpoint}/models/${model}:generateContent`;
+  } else {
+    // Assume it's a proxy, try OpenAI-compatible chat endpoint
+    endpoint = `${endpoint}/v1/chat/completions`;
+  }
+
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+
+  let body: Record<string, any>;
+
+  // Check if using native Gemini API or OpenAI-compatible proxy
+  if (endpoint.includes(":generateContent")) {
+    // Native Gemini API format
+    headers["x-goog-api-key"] = apiKey;
+    body = {
+      contents: [
+        {
+          parts: [
+            { text: prompt },
+            ...(options?.referenceImages ?? []).map((image) => ({
+              inlineData: {
+                mimeType: image.mimeType,
+                data: image.base64,
+              },
+            })),
+          ],
+        },
+      ],
+      generationConfig: {
+        responseModalities: ["TEXT", "IMAGE"],
+      },
+    };
+  } else {
+    // OpenAI-compatible proxy format (use chat completions)
+    headers["Authorization"] = `Bearer ${apiKey}`;
+    body = {
+      model,
+      messages: [
+        {
+          role: "user",
+          content:
+            options?.referenceImages && options.referenceImages.length > 0
+              ? [
+                  { type: "text", text: prompt },
+                  ...options.referenceImages.map((image) => ({
+                    type: "image_url",
+                    image_url: {
+                      url: `data:${image.mimeType};base64,${image.base64}`,
+                    },
+                  })),
+                ]
+              : prompt,
+        },
+      ],
+      stream: false,
+    };
+  }
+
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    let errorMessage = `Gemini image generation failed (${response.status})`;
+    try {
+      const errorJson = JSON.parse(errorText);
+      errorMessage =
+        errorJson.error?.message ||
+        errorJson.error?.status ||
+        errorJson.message ||
+        (typeof errorJson.error === "string" ? errorJson.error : null) ||
+        errorMessage;
+
+      // Append error code if available
+      if (errorJson.error?.code) {
+        errorMessage = `${errorMessage} (code: ${errorJson.error.code})`;
+      }
+    } catch {
+      if (errorText)
+        errorMessage = `${errorMessage}: ${errorText.slice(0, 500)}`;
+    }
+    throw new Error(errorMessage);
+  }
+
+  const result = await response.json();
+
+  // Handle different response formats
+  // 处理不同的响应格式
+  console.log(
+    "[generateImageGemini] Response received:",
+    JSON.stringify(result, null, 2).slice(0, 2000),
+  );
+
+  if (result.candidates) {
+    // Native Gemini format
+    const candidate = result.candidates[0];
+    const parts = candidate?.content?.parts || [];
+    console.log(
+      "[generateImageGemini] Gemini native format, parts count:",
+      parts.length,
+    );
+
+    const imagePart = parts.find((p: any) =>
+      p.inlineData?.mimeType?.startsWith("image/"),
+    );
+
+    if (imagePart?.inlineData) {
+      console.log(
+        "[generateImageGemini] Found image data, mimeType:",
+        imagePart.inlineData.mimeType,
+      );
+      return {
+        created: Date.now(),
+        data: [
+          {
+            b64_json: imagePart.inlineData.data,
+          },
+        ],
+      };
+    }
+
+    // Check if there's text response (might indicate an error or refusal)
+    const textPart = parts.find((p: any) => p.text);
+    if (textPart?.text) {
+      console.warn(
+        "[generateImageGemini] Got text instead of image:",
+        textPart.text,
+      );
+      throw new Error(
+        `Model returned text instead of an image: ${textPart.text.slice(0, 200)}`,
+      );
+    }
+
+    // No image in response
+    console.error(
+      "[generateImageGemini] No image data in candidates. Parts:",
+      parts,
+    );
+    throw new Error(
+      "Gemini response did not contain image data. Please ensure you are using a model that supports image generation.",
+    );
+  }
+
+  if (result.choices) {
+    // OpenAI-compatible format from proxy
+    const content = result.choices[0]?.message?.content;
+    console.log(
+      "[generateImageGemini] OpenAI format, content type:",
+      typeof content,
+      typeof content === "string" ? content.slice(0, 200) : "(array or object)",
+    );
+
+    // Check if content contains image URL or base64
+    if (typeof content === "string") {
+      // Try to extract URL if present
+      const urlMatch = content.match(/https?:\/\/[^\s"'<>]+/i);
+      if (urlMatch) {
+        console.log("[generateImageGemini] Found URL in content:", urlMatch[0]);
+        return {
+          created: Date.now(),
+          data: [{ url: urlMatch[0] }],
+        };
+      }
+      // Check if it's base64
+      if (
+        content.startsWith("data:image/") ||
+        content.match(/^[A-Za-z0-9+/=]{100,}/)
+      ) {
+        console.log("[generateImageGemini] Found base64 in content");
+        return {
+          created: Date.now(),
+          data: [
+            { b64_json: content.replace(/^data:image\/[^;]+;base64,/, "") },
+          ],
+        };
+      }
+
+      // Content is text, not image - might be refusal or error
+      console.warn(
+        "[generateImageGemini] Content is text, not image:",
+        content.slice(0, 500),
+      );
+      throw new Error(
+        `Model returned text instead of an image: ${content.slice(0, 300)}`,
+      );
+    }
+
+    // Content might be array with image_url
+    if (Array.isArray(result.choices[0]?.message?.content)) {
+      console.log(
+        "[generateImageGemini] Content is array, looking for image_url...",
+      );
+      const imgContent = result.choices[0].message.content.find(
+        (c: any) => c.type === "image_url",
+      );
+      if (imgContent?.image_url?.url) {
+        console.log(
+          "[generateImageGemini] Found image_url:",
+          imgContent.image_url.url.slice(0, 100),
+        );
+        const url = imgContent.image_url.url;
+        if (url.startsWith("data:image/")) {
+          return {
+            created: Date.now(),
+            data: [{ b64_json: url.replace(/^data:image\/[^;]+;base64,/, "") }],
+          };
+        }
+        return {
+          created: Date.now(),
+          data: [{ url }],
+        };
+      }
+    }
+
+    // Check for images array in message (some proxies use this format)
+    // 检查 message.images 数组（某些代理使用此格式）
+    const images = result.choices[0]?.message?.images;
+    if (Array.isArray(images) && images.length > 0) {
+      console.log(
+        "[generateImageGemini] Found message.images array:",
+        images.length,
+        "images",
+      );
+      const firstImage = images[0];
+      const imageUrl = firstImage?.image_url?.url || firstImage?.url;
+
+      if (imageUrl) {
+        console.log(
+          "[generateImageGemini] Extracted image URL:",
+          imageUrl.slice(0, 100),
+        );
+        if (imageUrl.startsWith("data:image/")) {
+          return {
+            created: Date.now(),
+            data: [
+              { b64_json: imageUrl.replace(/^data:image\/[^;]+;base64,/, "") },
+            ],
+          };
+        }
+        return {
+          created: Date.now(),
+          data: [{ url: imageUrl }],
+        };
+      }
+    }
+
+    // Content is null but no images found
+    if (result.choices[0]?.message?.content === null) {
+      console.error(
+        "[generateImageGemini] content is null and no images found in message",
+      );
+    }
+  }
+
+  // If we got here, response format is unexpected
+  console.error(
+    "[generateImageGemini] Unexpected response format. Full response:",
+    JSON.stringify(result, null, 2),
+  );
+  throw new Error(
+    `Failed to extract image from response. Response format: ${JSON.stringify(result).slice(0, 500)}`,
+  );
+}
+
+// OpenAI 兼容格式
+async function generateImageOpenAI(
+  apiKey: string,
+  apiUrl: string,
+  model: string,
+  prompt: string,
+  options?: {
+    size?: string;
+    quality?: "standard" | "hd";
+    style?: "vivid" | "natural";
+    n?: number;
+    response_format?: "url" | "b64_json";
+    referenceImages?: ImageReferenceAttachment[];
+  },
+): Promise<ImageGenerationResponse> {
+  if (options?.referenceImages && options.referenceImages.length > 0) {
+    throw new Error(
+      "The selected image generation endpoint does not support reference images. Use a multimodal image generation model or Gemini-compatible endpoint.",
+    );
+  }
+
+  let endpoint = apiUrl.replace(/\/$/, "");
+
+  if (endpoint.includes("/images/generations")) {
+    // 保持原样 / Keep as is
+  } else if (endpoint.endsWith("/chat/completions")) {
+    endpoint = endpoint.replace(/\/chat\/completions$/, "/images/generations");
+  } else if (endpoint.match(/\/v\d+$/)) {
+    endpoint = endpoint + "/images/generations";
+  } else {
+    endpoint = endpoint + "/v1/images/generations";
+  }
+
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${apiKey}`,
+  };
+
+  const body: Record<string, any> = {
+    prompt,
+    model: model || "dall-e-3",
+    n: options?.n ?? 1,
+  };
+
+  if (options?.size) body.size = options.size;
+  if (options?.quality) body.quality = options.quality;
+  if (options?.style) body.style = options.style;
+  if (options?.response_format !== undefined)
+    body.response_format = options.response_format;
+
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    let errorMessage = `Image generation failed (${response.status})`;
+    // Image generation failed
+    try {
+      const errorJson = JSON.parse(errorText);
+      // Try different error message formats
+      // 尝试不同的错误消息格式
+      errorMessage =
+        errorJson.error?.message ||
+        errorJson.error?.type ||
+        errorJson.message ||
+        errorJson.detail ||
+        (typeof errorJson.error === "string" ? errorJson.error : null) ||
+        errorMessage;
+
+      // If we have additional error info, append it
+      // 如果有更多错误信息，附加上去
+      if (errorJson.error?.code) {
+        errorMessage = `${errorMessage} (code: ${errorJson.error.code})`;
+      }
+      if (errorJson.error?.type && errorJson.error?.type !== errorMessage) {
+        errorMessage = `[${errorJson.error.type}] ${errorMessage}`;
+      }
+    } catch {
+      if (errorText) errorMessage = errorText.slice(0, 500);
+    }
+    throw new Error(errorMessage);
+  }
+
+  return await response.json();
+}
+
+// FLUX (Black Forest Labs) API
+async function generateImageFlux(
+  apiKey: string,
+  apiUrl: string,
+  model: string,
+  prompt: string,
+  options?: { aspect_ratio?: string; n?: number },
+): Promise<ImageGenerationResponse> {
+  const endpoint = apiUrl.replace(/\/$/, "") + "/images/generations";
+
+  const body: Record<string, any> = {
+    prompt,
+    model: model || "flux-pro-1.1",
+    width: 1024,
+    height: 1024,
+  };
+
+  // FLUX 使用 aspect_ratio
+  // FLUX uses aspect_ratio
+  if (options?.aspect_ratio) {
+    const [w, h] = options.aspect_ratio.split(":").map(Number);
+    if (w && h) {
+      body.width = w > h ? 1024 : Math.round((1024 * w) / h);
+      body.height = h > w ? 1024 : Math.round((1024 * h) / w);
+    }
+  }
+
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Key": apiKey,
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`FLUX image generation failed: ${errorText.slice(0, 200)}`);
+    // FLUX image generation failed
+  }
+
+  const result = await response.json();
+  return {
+    created: Date.now(),
+    data: [{ url: result.sample || result.url || result.image }],
+  };
+}
+
+// Ideogram API
+async function generateImageIdeogram(
+  apiKey: string,
+  apiUrl: string,
+  model: string,
+  prompt: string,
+  options?: { aspect_ratio?: string; n?: number },
+): Promise<ImageGenerationResponse> {
+  const endpoint = apiUrl.replace(/\/$/, "") + "/generate";
+
+  const body: Record<string, any> = {
+    image_request: {
+      prompt,
+      model: model || "V_3",
+      aspect_ratio: options?.aspect_ratio || "ASPECT_1_1",
+    },
+  };
+
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Api-Key": apiKey,
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(
+      `Ideogram image generation failed: ${errorText.slice(0, 200)}`,
+    );
+    // Ideogram image generation failed
+  }
+
+  const result = await response.json();
+  const images = result.data || [];
+  return {
+    created: Date.now(),
+    data: images.map((img: any) => ({ url: img.url })),
+  };
+}
+
+// Recraft API
+async function generateImageRecraft(
+  apiKey: string,
+  apiUrl: string,
+  model: string,
+  prompt: string,
+  options?: { size?: string; n?: number },
+): Promise<ImageGenerationResponse> {
+  const endpoint = apiUrl.replace(/\/$/, "") + "/images/generations";
+
+  const body: Record<string, any> = {
+    prompt,
+    model: model || "recraftv3",
+    n: options?.n ?? 1,
+  };
+
+  if (options?.size) body.size = options.size;
+
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(
+      `Recraft image generation failed: ${errorText.slice(0, 200)}`,
+    );
+    // Recraft image generation failed
+  }
+
+  const result = await response.json();
+  return {
+    created: Date.now(),
+    data: result.data || [{ url: result.image?.url }],
+  };
+}
+
+// Replicate API
+async function generateImageReplicate(
+  apiKey: string,
+  model: string,
+  prompt: string,
+  options?: { aspect_ratio?: string; n?: number },
+): Promise<ImageGenerationResponse> {
+  // Replicate 使用 predictions API
+  // Replicate uses predictions API
+  const endpoint = "https://api.replicate.com/v1/predictions";
+
+  const body: Record<string, any> = {
+    version: model, // Replicate 使用 model version / Replicate uses model version
+    input: {
+      prompt,
+      num_outputs: options?.n ?? 1,
+    },
+  };
+
+  if (options?.aspect_ratio) {
+    body.input.aspect_ratio = options.aspect_ratio;
+  }
+
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(
+      `Replicate image generation failed: ${errorText.slice(0, 200)}`,
+    );
+    // Replicate image generation failed
+  }
+
+  const prediction = await response.json();
+
+  // Replicate 是异步的，需要轮询结果
+  // Replicate is asynchronous, need to poll for results
+  let result = prediction;
+  while (result.status === "starting" || result.status === "processing") {
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    const pollResponse = await fetch(result.urls.get, {
+      headers: { Authorization: `Bearer ${apiKey}` },
+    });
+    result = await pollResponse.json();
+  }
+
+  if (result.status === "failed") {
+    throw new Error(`Replicate image generation failed: ${result.error}`);
+    // Replicate image generation failed
+  }
+
+  const outputs = Array.isArray(result.output)
+    ? result.output
+    : [result.output];
+  return {
+    created: Date.now(),
+    data: outputs.map((url: string) => ({ url })),
+  };
+}
+
+// Stability AI API
+async function generateImageStability(
+  apiKey: string,
+  apiUrl: string,
+  model: string,
+  prompt: string,
+  options?: { size?: string; n?: number },
+): Promise<ImageGenerationResponse> {
+  const endpoint =
+    apiUrl.replace(/\/$/, "") +
+    "/generation/" +
+    (model || "stable-diffusion-xl-1024-v1-0") +
+    "/text-to-image";
+
+  const body: Record<string, any> = {
+    text_prompts: [{ text: prompt, weight: 1 }],
+    samples: options?.n ?? 1,
+    steps: 30,
+  };
+
+  if (options?.size) {
+    const [width, height] = options.size.split("x").map(Number);
+    if (width && height) {
+      body.width = width;
+      body.height = height;
+    }
+  }
+
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+      Accept: "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(
+      `Stability AI image generation failed: ${errorText.slice(0, 200)}`,
+    );
+    // Stability AI image generation failed
+  }
+
+  const result = await response.json();
+  return {
+    created: Date.now(),
+    data:
+      result.artifacts?.map((art: any) => ({
+        b64_json: art.base64,
+      })) || [],
+  };
+}
+
+/**
+ * 测试图像生成模型
+ * 注意：不同 API 对参数的支持不同，测试时只传递最基本的参数
+ * Test image generation model
+ * Note: Different APIs support different parameters, only pass basic parameters during testing
+ */
+export async function testImageGeneration(
+  config: AIConfig,
+  testPrompt?: string,
+): Promise<ImageTestResult> {
+  const startTime = Date.now();
+  const prompt = testPrompt || "A cute cat sitting on a windowsill";
+
+  try {
+    // 测试时不传递 size 等参数，让 API 使用默认值
+    // Don't pass size and other parameters during testing, let API use default values
+    const result = await generateImage(
+      { ...config, imageParams: undefined },
+      prompt,
+      { n: 1 },
+    );
+
+    const imageData = result.data[0];
+
+    return {
+      success: true,
+      imageUrl: imageData.url,
+      imageBase64: imageData.b64_json,
+      revisedPrompt: imageData.revised_prompt,
+      latency: Date.now() - startTime,
+      model: config.model,
+      provider: config.provider,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "未知错误",
+      latency: Date.now() - startTime,
+      model: config.model,
+      provider: config.provider,
+    };
+  }
+}
+
+// ============ SKILL.md 生成功能 ============
+// ============ SKILL.md Generation Functionality ============
+
+/**
+ * Claude 官方 skill-creator 系统提示词
+ * 基于 https://github.com/anthropics/skills/blob/main/skills/skill-creator/SKILL.md
+ * Claude official skill-creator system prompt
+ * Based on https://github.com/anthropics/skills/blob/main/skills/skill-creator/SKILL.md
+ */
+const SKILL_CREATOR_SYSTEM_PROMPT = `You are a Skill Creator that helps users create effective SKILL.md files following the Anthropic Agent Skills specification.
+
+## About Skills
+
+Skills are modular, self-contained packages that extend Claude's capabilities by providing specialized knowledge, workflows, and tools. They transform Claude from a general-purpose agent into a specialized agent equipped with procedural knowledge.
+
+## SKILL.md Structure
+
+Every SKILL.md requires:
+1. **YAML frontmatter** (between --- markers) with:
+   - \`name\`: Human-friendly name (lowercase-with-hyphens, max 64 characters)
+   - \`description\`: What the skill does and when to use it (max 200 characters) - CRITICAL: Claude uses this to determine when to invoke the skill
+2. **Markdown body** with clear instructions
+
+## Core Principles
+
+1. **Concise is Key**: Only include information Claude doesn't already have. Challenge each piece: "Does Claude really need this?"
+2. **Clear Description**: Include BOTH what the skill does AND specific triggers/contexts for when to use it
+3. **Progressive Disclosure**: Keep SKILL.md lean (<500 lines), move detailed reference to separate files
+4. **Appropriate Freedom**: Match instruction specificity to task fragility
+
+## Output Format
+
+Generate a complete SKILL.md with proper structure:
+
+\`\`\`markdown
+---
+name: skill-name-here
+description: Clear description of what this skill does and when to use it (max 200 chars)
+---
+
+# Skill Title
+
+## Overview
+Brief explanation of the skill's purpose.
+
+## When to Use
+- Trigger condition 1
+- Trigger condition 2
+
+## Instructions
+1. Step 1
+2. Step 2
+...
+
+## Examples (if helpful)
+...
+
+## Guidelines
+- Important constraint 1
+- Best practice 2
+\`\`\`
+
+## Important Rules
+
+1. Use imperative/infinitive form in instructions
+2. Be specific about when the skill should be used in the description
+3. Include examples when they clarify usage
+4. Focus each skill on one specific workflow
+5. Do NOT include extraneous documentation (README, CHANGELOG, etc.)
+6. Output ONLY the SKILL.md content, no additional explanation`;
+
+/**
+ * 使用 AI 生成 SKILL.md 内容
+ * Generate SKILL.md content using AI
+ * @param config AI 配置
+ * @param skillName 技能名称（用户输入）
+ * @param skillPurpose 技能用途描述（用户输入）
+ * @param streamCallbacks 可选的流式回调
+ * @returns 生成的 SKILL.md 内容
+ */
+export async function generateSkillContent(
+  config: AIConfig,
+  skillName: string,
+  skillPurpose: string,
+  streamCallbacks?: StreamCallbacks,
+  customSystemPrompt?: string,
+): Promise<string> {
+  const userPrompt = `Create a SKILL.md file for the following skill:
+
+**Skill Name**: ${skillName}
+**Purpose/Description**: ${skillPurpose}
+
+Generate a complete, well-structured SKILL.md following the Anthropic Agent Skills specification. Output ONLY the SKILL.md content (including the YAML frontmatter), no additional explanation.`;
+
+  const systemPrompt = customSystemPrompt || SKILL_CREATOR_SYSTEM_PROMPT;
+  const messages: ChatMessage[] = [
+    { role: "system", content: systemPrompt },
+    { role: "user", content: userPrompt },
+  ];
+
+  const result = await chatCompletion(config, messages, {
+    temperature: 0.7,
+    maxTokens: 4096,
+    stream: !!streamCallbacks,
+    streamCallbacks,
+  });
+
+  return result.content;
+}
+
+/**
+ * AI 润色 SKILL.md 内容（保留核心能力，按标准格式优化可读性）
+ * AI polish SKILL.md content (preserve core capabilities, optimize readability per standard format)
+ */
+const SKILL_POLISH_SYSTEM_PROMPT = `You are a SKILL.md editor. Your job is to polish and restructure existing skill content to follow the Anthropic Agent Skills specification — while strictly preserving ALL core capabilities, instructions, and intent written by the user.
+
+## Rules
+
+1. **PRESERVE everything the user wrote** — do NOT remove, weaken, or change any core instruction, capability, workflow step, or constraint. You are polishing, not rewriting.
+2. **Add YAML frontmatter** if missing (name + description ≤200 chars)
+3. **Restructure** into clear sections: Overview, When to Use, Instructions, Guidelines, Examples (only if helpful)
+4. **Improve clarity** — fix grammar, use imperative form, add bullet points, improve formatting
+5. **Keep it concise** — remove redundancy but never remove unique information
+6. **Output ONLY the polished SKILL.md** — no explanations, no commentary, no code fences wrapping the entire output
+7. **Use the same language as the user's content** — if the user wrote in Chinese, output in Chinese; if English, output in English
+
+## Important
+
+- If the content already has good structure, make minimal changes
+- Never invent new capabilities the user didn't describe
+- The description in frontmatter should accurately summarize what the user wrote`;
+
+export async function polishSkillContent(
+  config: AIConfig,
+  existingContent: string,
+  skillName?: string,
+  streamCallbacks?: StreamCallbacks,
+): Promise<string> {
+  const userPrompt = `Please polish the following SKILL.md content. Preserve ALL core capabilities and instructions. Only improve structure, formatting, and readability according to the SKILL.md standard.
+
+${skillName ? `**Skill Name**: ${skillName}\n` : ""}
+**Existing Content**:
+${existingContent}`;
+
+  const messages: ChatMessage[] = [
+    { role: "system", content: SKILL_POLISH_SYSTEM_PROMPT },
+    { role: "user", content: userPrompt },
+  ];
+
+  const result = await chatCompletion(config, messages, {
+    temperature: 0.4,
+    maxTokens: 4096,
+    stream: !!streamCallbacks,
+    streamCallbacks,
+  });
+
+  return result.content;
+}
+
+// ============ 多模型对比分析 ============
+// ============ Multi-Model Comparison Analysis ============
+
+export interface MultiModelCompareResult {
+  messages: ChatMessage[];
+  results: AITestResult[];
+  totalTime: number;
+}
+
+/**
+ * Multi-model prompt comparison (parallel execution, supports streaming)
+ * 多模型提示词对比分析（并行执行，支持流式输出）
+ */
+export async function multiModelCompare(
+  configs: AIConfig[],
+  messages: ChatMessage[],
+  options?: {
+    temperature?: number;
+    maxTokens?: number;
+    streamCallbacksMap?: Map<string, StreamCallbacks>; // Streaming callback for each model
+    // 每个模型的流式回调
+  },
+): Promise<MultiModelCompareResult> {
+  const startTime = Date.now();
+
+  const promises = configs.map(async (config) => {
+    const resultStartTime = Date.now();
+    const streamCallbacks = options?.streamCallbacksMap?.get(
+      config.id || config.model,
+    );
+
+    try {
+      // 显式传递 stream 和 enableThinking 参数
+      // Explicitly pass stream and enableThinking parameters
+      const useStream = config.chatParams?.stream ?? false;
+      const useThinking = config.chatParams?.enableThinking ?? false;
+
+      const result = await chatCompletion(config, messages, {
+        temperature: options?.temperature,
+        maxTokens: options?.maxTokens,
+        stream: useStream,
+        enableThinking: useThinking,
+        streamCallbacks,
+      });
+
+      return {
+        id: config.id,
+        success: true,
+        response: result.content,
+        thinkingContent: result.thinkingContent,
+        latency: Date.now() - resultStartTime,
+        model: config.model,
+        provider: config.provider,
+      } as AITestResult;
+    } catch (error) {
+      return {
+        id: config.id,
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+        latency: Date.now() - resultStartTime,
+        model: config.model,
+        provider: config.provider,
+      } as AITestResult;
+    }
+  });
+
+  const results = await Promise.all(promises);
+
+  return {
+    messages,
+    results,
+    totalTime: Date.now() - startTime,
+  };
+}
+
+/**
+ * Generate messages using prompt template
+ * 使用 Prompt 模板生成消息
+ */
+export function buildMessagesFromPrompt(
+  systemPrompt: string | undefined,
+  userPrompt: string,
+  variables?: Record<string, string>,
+  imageAttachments?: ChatImageAttachment[],
+): ChatMessage[] {
+  const messages: ChatMessage[] = [];
+
+  // Replace variables
+  // 替换变量
+  let processedUserPrompt = userPrompt;
+  if (variables) {
+    for (const [key, value] of Object.entries(variables)) {
+      processedUserPrompt = processedUserPrompt.replace(
+        new RegExp(`\\{\\{${key}\\}\\}`, "g"),
+        value,
+      );
+    }
+  }
+
+  if (systemPrompt) {
+    let processedSystemPrompt = systemPrompt;
+    if (variables) {
+      for (const [key, value] of Object.entries(variables)) {
+        processedSystemPrompt = processedSystemPrompt.replace(
+          new RegExp(`\\{\\{${key}\\}\\}`, "g"),
+          value,
+        );
+      }
+    }
+    messages.push({ role: "system", content: processedSystemPrompt });
+  }
+
+  if (imageAttachments && imageAttachments.length > 0) {
+    const content: ChatMessageContentPart[] = [
+      { type: "text", text: processedUserPrompt },
+      ...imageAttachments.map((attachment) => ({
+        type: "image_url" as const,
+        image_url: {
+          url: `data:${attachment.mimeType};base64,${attachment.base64}`,
+        },
+      })),
+    ];
+    messages.push({ role: "user", content });
+  } else {
+    messages.push({ role: "user", content: processedUserPrompt });
+  }
+
+  return messages;
+}
+
+// ============ 获取模型列表 ============
+// ============ Get Model List ============
+
+export interface ModelInfo {
+  id: string;
+  name?: string;
+  owned_by?: string;
+  created?: number;
+}
+
+export interface FetchModelsResult {
+  success: boolean;
+  models: ModelInfo[];
+  error?: string;
+  reason?: "auth" | "network" | "unsupported" | "http" | "parse";
+  endpoint?: string;
+  status?: number;
+}
+
+/**
+ * Calculate Base URL (for display preview)
+ * 处理各种用户输入情况，返回标准化的 base URL
+ * 如果用户在 URL 末尾输入 #，则视为显式指定，不进行后续补全，预览显示 # 之前的部分
+ * Calculate base URL (for display preview)
+ * Handle various user input scenarios, return standardized base URL
+ * If the user enters # at the end of the URL, it is treated as explicitly specified,
+ * no subsequent completion is performed, and the preview displays the part before #
+ */
+export function getBaseUrl(apiUrl: string): string {
+  if (!apiUrl) return "";
+
+  let url = apiUrl.trim();
+
+  // Handle # suffix: if ends with #, treat as explicit and remove # for display
+  // 处理 # 后缀：如果以 # 结尾，视为显式指定，显示时移除 #
+  if (url.endsWith("#")) {
+    return url.slice(0, -1);
+  }
+
+  if (url.endsWith("/")) {
+    url = url.slice(0, -1);
+  }
+
+  // Remove common endpoint suffixes
+  // 移除常见的端点后缀
+  const suffixes = [
+    "/chat/completions",
+    "/completions",
+    "/models",
+    "/embeddings",
+    "/images/generations",
+  ];
+  for (const suffix of suffixes) {
+    if (url.endsWith(suffix)) {
+      url = url.slice(0, -suffix.length);
+      break;
+    }
+  }
+
+  return url;
+}
+
+/**
+ * Normalize user input for persisted API URL storage
+ * 保持用户显式的 # 标记，同时把完整 endpoint 收敛为 base URL
+ */
+export function normalizeApiUrlInput(apiUrl: string): string {
+  if (!apiUrl) return "";
+
+  const trimmed = apiUrl.trim();
+  const explicit = trimmed.endsWith("#");
+  const rawValue = explicit ? trimmed.slice(0, -1) : trimmed;
+  const normalized = getBaseUrl(rawValue);
+
+  if (!normalized) {
+    return explicit ? "#" : "";
+  }
+
+  return explicit ? `${normalized}#` : normalized;
+}
+
+/**
+ * Get complete API endpoint preview (for display)
+ * 如果用户输入以 # 结尾，则不自动填充后续路径
+ * 如果用户没有输入 /v1，会自动补全
+ * 对于 Gemini API，使用 OpenAI 兼容端点
+ * Get complete API endpoint preview (for display)
+ * If the input ends with #, do not auto-fill the subsequent path
+ * Auto-complete /v1 if user didn't input it
+ * Use OpenAI-compatible endpoint for Gemini API
+ */
+export function getApiEndpointPreview(
+  apiUrl: string,
+  protocol: AIProtocol = "openai",
+): string {
+  if (!apiUrl) return "";
+  return buildChatEndpointFromBase(resolveProtocolBase(apiUrl, protocol));
+}
+
+/**
+ * Get image generation API endpoint preview (for display)
+ * 如果用户输入以 # 结尾，则不自动填充后续路径
+ * 获取生图 API 端点预览（用于显示）
+ */
+export function getImageApiEndpointPreview(apiUrl: string): string {
+  if (!apiUrl) return "";
+
+  // If ends with #, just return the part before # without any auto-fill
+  // 如果以 # 结尾，直接返回 # 之前的部分，不进行任何自动填充
+  if (apiUrl.trim().endsWith("#")) {
+    return apiUrl.trim().slice(0, -1);
+  }
+
+  const baseUrl = getBaseUrl(apiUrl);
+
+  // Gemini is not OpenAI's images/generations specification
+  // Gemini（Google Generative Language API）并非 OpenAI 的 images/generations 规范
+  if (baseUrl.includes("generativelanguage.googleapis.com")) {
+    const geminiBaseUrl = baseUrl.replace(/\/openai$/, "");
+    if (geminiBaseUrl.match(/\/v\d+(?:beta)?$/)) {
+      return geminiBaseUrl + "/models";
+    }
+    return geminiBaseUrl + "/v1beta/models";
+  }
+
+  let endpoint = apiUrl.replace(/\/$/, "");
+
+  // If already contains images/generations, use directly
+  // 如果已经包含 images/generations，直接使用
+  if (endpoint.includes("/images/generations")) {
+    return endpoint;
+  } else if (endpoint.endsWith("/chat/completions")) {
+    // Replace chat/completions with images/generations
+    // 替换 chat/completions 为 images/generations
+    return endpoint.replace(/\/chat\/completions$/, "/images/generations");
+  } else if (endpoint.match(/\/v\d+$/)) {
+    // If ends with /v1, /v2, /v3, etc., append /images/generations
+    // 如果以 /v1, /v2, /v3 等结尾，追加 /images/generations
+    return endpoint + "/images/generations";
+  } else {
+    // Default append /v1/images/generations
+    // 默认追加 /v1/images/generations
+    return endpoint + "/v1/images/generations";
+  }
+}
+
+/**
+ * Fetch available model list from API
+ * 从 API 获取可用模型列表
+ */
+export async function fetchAvailableModels(
+  apiUrl: string,
+  apiKey: string,
+  apiProtocol: AIProtocol = "openai",
+): Promise<FetchModelsResult> {
+  if (!apiKey || !apiUrl) {
+    return {
+      success: false,
+      models: [],
+      error: "Please fill in API Key and API URL first",
+    };
+    // 请先填写 API Key 和 API 地址
+  }
+
+  try {
+    const endpoint = buildModelsEndpointFromBase(
+      resolveProtocolBase(apiUrl, apiProtocol),
+    );
+  const resolvedProtocol = resolveAIProtocol({
+    apiProtocol,
+    provider: "",
+    apiUrl,
+  });
+  const headers = buildHeadersForProtocol(resolvedProtocol, apiKey, {
+      accept: "application/json",
+      useNativeGeminiAuth: resolvedProtocol === "gemini",
+    });
+
+    const transport = getAITransport();
+    const response = transport
+      ? createResponseLike(
+          await transport.request({
+            method: "GET",
+            url: endpoint,
+            headers,
+          }),
+        )
+      : await fetch(endpoint, {
+          method: "GET",
+          headers,
+        });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      const reason =
+        response.status === 401 || response.status === 403
+          ? "auth"
+          : response.status === 404 ||
+              response.status === 405 ||
+              response.status === 501
+            ? "unsupported"
+            : "http";
+      return {
+        success: false,
+        models: [],
+        error: `获取模型列表失败: ${response.status} - ${errorText.substring(0, 100)}`,
+        reason,
+        endpoint,
+        status: response.status,
+        // Failed to get model list
+      };
+    }
+
+    const data = await response.json();
+
+    if (data.data && Array.isArray(data.data) && apiProtocol === "anthropic") {
+      const models = data.data
+        .filter((m: { id?: string }) => typeof m.id === "string")
+        .map(
+          (m: { id: string; display_name?: string; created_at?: string }) => ({
+            id: m.id,
+            name: m.display_name || m.id,
+            owned_by: "Anthropic",
+            created: m.created_at ? Date.parse(m.created_at) : undefined,
+          }),
+        )
+        .sort((a: ModelInfo, b: ModelInfo) => a.id.localeCompare(b.id));
+
+      return { success: true, models };
+    }
+
+    // OpenAI 格式的响应
+    // OpenAI format response
+    if (data.data && Array.isArray(data.data)) {
+      const models = data.data
+        .filter((m: { id?: string }) => m.id) // 过滤掉没有 id 的 / Filter out those without id
+        .map((m: { id: string; owned_by?: string; created?: number }) => ({
+          id: m.id,
+          name: m.id,
+          owned_by: m.owned_by,
+          created: m.created,
+        }))
+        .sort((a: ModelInfo, b: ModelInfo) => a.id.localeCompare(b.id));
+
+      return { success: true, models };
+    }
+
+    // Gemini 格式的响应 / Gemini format response
+    if (data.models && Array.isArray(data.models)) {
+      const models = data.models
+        .filter((m: { name?: string }) => m.name)
+        .map(
+          (m: { name: string; displayName?: string; description?: string }) => {
+            // Gemini returns "models/gemini-pro", we need "gemini-pro" for OpenAI compatible endpoint
+            const id = m.name.replace(/^models\//, "");
+            return {
+              id: id,
+              name: m.displayName ? `${m.displayName} (${id})` : id,
+              owned_by: "Google",
+              description: m.description,
+            };
+          },
+        )
+        .sort((a: ModelInfo, b: ModelInfo) => a.id.localeCompare(b.id));
+
+      return { success: true, models };
+    }
+
+    // 某些 API 直接返回数组
+    // Some APIs return array directly
+    if (Array.isArray(data)) {
+      const models = data
+        .filter((m: { id?: string; model?: string }) => m.id || m.model)
+        .map((m: { id?: string; model?: string; name?: string }) => ({
+          id: m.id || m.model || "",
+          name: m.name || m.id || m.model,
+        }));
+      return { success: true, models };
+    }
+
+    return {
+      success: false,
+      models: [],
+      error: "无法解析模型列表响应",
+      reason: "unsupported",
+      endpoint,
+    };
+    // Cannot parse model list response
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "获取模型列表失败";
+    return {
+      success: false,
+      models: [],
+      error: message,
+      reason:
+        message.toLowerCase().includes("failed to fetch") ||
+        message.toLowerCase().includes("network")
+          ? "network"
+          : "http",
+      // Failed to get model list
+    };
+  }
+}

@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Documentation
+    url: https://github.com/legeling/PromptHub#readme
+    about: Check the installation, sync, and self-hosted guides before opening a new issue.
+  - name: Security report
+    url: mailto:legeling567@gmail.com
+    about: Please report security vulnerabilities privately instead of opening a public issue.

@@ -1,0 +1,20 @@
+{
+  "skills": [
+    {
+      "name": "write",
+      "description": "Write better content",
+      "author": "E2E Seed",
+      "tags": ["general"],
+      "files": [
+        {
+          "relativePath": "SKILL.md",
+          "content": "---\ndescription: Write better content\n---\n\n# Write\n\nHelp the user write better."
+        },
+        {
+          "relativePath": "notes/checklist.md",
+          "content": "# Checklist\n\n- Outline\n- Draft\n- Review"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+- [x] 新增 Web 认证验证码服务与路由
+- [x] 更新登录/注册请求契约与前端 API
+- [x] 登录页接入验证码
+- [x] 初始化页接入验证码
+- [x] 更新认证与页面测试
+- [x] 运行 lint / typecheck / build:web / 相关测试
+- [x] 更新 implementation.md

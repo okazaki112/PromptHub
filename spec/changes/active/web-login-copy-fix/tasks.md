@@ -1,0 +1,5 @@
+- [x] 为登录页新增独立说明文案 key
+- [x] 更新所有 Web locale
+- [x] 补充登录页回归测试
+- [x] 运行 Web 相关测试与 lint
+- [x] 更新 implementation.md

@@ -1,0 +1,21 @@
+services:
+  prompthub-web:
+    build:
+      context: ../..
+      dockerfile: apps/web/Dockerfile
+    image: prompthub-web:latest
+    container_name: prompthub-web
+    restart: unless-stopped
+    ports:
+      - "${PROMPTHUB_WEB_PORT:-3871}:3000"
+    env_file:
+      - .env
+    environment:
+      HOST: 0.0.0.0
+      PORT: 3000
+      DATA_ROOT: /app
+      ALLOW_REGISTRATION: ${ALLOW_REGISTRATION:-false}
+    volumes:
+      - ./data:/app/data
+      - ./config:/app/config
+      - ./logs:/app/logs

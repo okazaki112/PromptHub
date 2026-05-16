@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": false,
+    "ignoreDeprecations": "5.0",
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "baseUrl": ".",
+    "paths": {
+      "@prompthub/core": ["../../packages/core/src/index.ts"],
+      "@prompthub/core/*": ["../../packages/core/src/*"],
+      "@prompthub/shared": ["../../packages/shared/types/index.ts"],
+      "@prompthub/shared/*": ["../../packages/shared/*"],
+      "@prompthub/db": ["../../packages/db/src/index.ts"],
+      "@prompthub/db/*": ["../../packages/db/src/*"]
+    }
+  },
+  "include": ["src/**/*.ts", "tests/**/*.ts", "../../packages/core/src/**/*.ts", "../../packages/db/src/**/*.ts", "../../packages/shared/**/*.ts"]
+}
