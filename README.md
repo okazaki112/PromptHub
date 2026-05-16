@@ -6,6 +6,7 @@
   **🚀 一款包含 Prompt 管理、Skill 管理、Agent 资产管理的一站式 AI 工具箱**
   
   *高效管理提示词 · 一键分发 Skills · 一站式管理 Agent 资产 · 云同步 · 备份恢复 · 版本管理*
+<img width="1356" height="902" alt="QQ20260516-121033-HD" src="https://github.com/user-attachments/assets/4859724f-d6e7-49f9-9f70-37ae4bbb7d1b" />
 
   <br/>
   
