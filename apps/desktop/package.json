@@ -24,7 +24,7 @@
     "dev:web": "vite --config vite.web.config.ts",
     "build": "vite build",
     "preview": "vite preview",
-    "electron:dev": "concurrently \"vite\" \"wait-on http://localhost:5173 out/main/index.js && electron out/main/index.js\"",
+    "electron:dev": "vite",
     "electron:build": "vite build && electron-builder",
     "electron:build:mac": "vite build && electron-builder --mac --x64 --arm64 --publish never",
     "electron:build:win": "vite build && electron-builder --win --x64 --arm64 --publish never",

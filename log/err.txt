@@ -1,0 +1,80 @@
+client:1035 WebSocket connection to 'ws://localhost:5173/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED
+ping @ client:1035
+waitForSuccessfulPing @ client:1054
+handleMessage @ client:968
+client:1035 WebSocket connection to 'ws://localhost:5173/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED
+ping @ client:1035
+waitForSuccessfulPing @ client:1060
+client:1035 WebSocket connection to 'ws://localhost:5173/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED
+ping @ client:1035
+waitForSuccessfulPing @ client:1060
+client:1035 WebSocket connection to 'ws://localhost:5173/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED
+ping @ client:1035
+waitForSuccessfulPing @ client:1060
+client:1035 WebSocket connection to 'ws://localhost:5173/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED
+ping @ client:1035
+waitForSuccessfulPing @ client:1060
+MainContent.tsx:26 
+        
+        
+       GET http://localhost:5173/src/renderer/components/prompt/VariableInputModal.tsx net::ERR_CONNECTION_REFUSED
+_c15 @ MainContent.tsx:26
+lazyInitializer @ chunk-ACDOY5PO.js?v=0c18bb4a:869
+mountLazyComponent @ chunk-XI35OFE4.js?v=0c18bb4a:14870
+beginWork @ chunk-XI35OFE4.js?v=0c18bb4a:15966
+beginWork$1 @ chunk-XI35OFE4.js?v=0c18bb4a:19806
+performUnitOfWork @ chunk-XI35OFE4.js?v=0c18bb4a:19251
+workLoopSync @ chunk-XI35OFE4.js?v=0c18bb4a:19190
+renderRootSync @ chunk-XI35OFE4.js?v=0c18bb4a:19169
+performSyncWorkOnRoot @ chunk-XI35OFE4.js?v=0c18bb4a:18927
+flushSyncCallbacks @ chunk-XI35OFE4.js?v=0c18bb4a:9166
+（匿名） @ chunk-XI35OFE4.js?v=0c18bb4a:18677
+显示另外 10 个框架
+收起
+6chunk-ACDOY5PO.js?v=0c18bb4a:903 Uncaught TypeError: Failed to fetch dynamically imported module: http://localhost:5173/src/renderer/components/prompt/VariableInputModal.tsx
+3chunk-XI35OFE4.js?v=0c18bb4a:14080 The above error occurred in one of your React components:
+
+    at Lazy
+    at Suspense
+    at main
+    at PromptSkillMainContent (http://localhost:5173/src/renderer/components/layout/MainContent.tsx:275:23)
+    at MainContent (http://localhost:5173/src/renderer/components/layout/MainContent.tsx:251:21)
+    at div
+    at div
+    at div
+    at div
+    at div
+    at div
+    at DndContext2 (http://localhost:5173/node_modules/.vite/deps/chunk-RWUWM3FA.js?v=0c18bb4a:2521:5)
+    at App (http://localhost:5173/src/renderer/App.tsx:74:24)
+    at ToastProvider (http://localhost:5173/src/renderer/components/ui/Toast.tsx:24:33)
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
+logCapturedError @ chunk-XI35OFE4.js?v=0c18bb4a:14080
+update.callback @ chunk-XI35OFE4.js?v=0c18bb4a:14100
+callCallback @ chunk-XI35OFE4.js?v=0c18bb4a:11296
+commitUpdateQueue @ chunk-XI35OFE4.js?v=0c18bb4a:11313
+commitLayoutEffectOnFiber @ chunk-XI35OFE4.js?v=0c18bb4a:17141
+commitLayoutMountEffects_complete @ chunk-XI35OFE4.js?v=0c18bb4a:18030
+commitLayoutEffects_begin @ chunk-XI35OFE4.js?v=0c18bb4a:18019
+commitLayoutEffects @ chunk-XI35OFE4.js?v=0c18bb4a:17970
+commitRootImpl @ chunk-XI35OFE4.js?v=0c18bb4a:19406
+commitRoot @ chunk-XI35OFE4.js?v=0c18bb4a:19330
+finishConcurrentRender @ chunk-XI35OFE4.js?v=0c18bb4a:18813
+performConcurrentWorkOnRoot @ chunk-XI35OFE4.js?v=0c18bb4a:18768
+workLoop @ chunk-XI35OFE4.js?v=0c18bb4a:197
+flushWork @ chunk-XI35OFE4.js?v=0c18bb4a:176
+performWorkUntilDeadline @ chunk-XI35OFE4.js?v=0c18bb4a:384
+显示另外 15 个框架
+收起
+chunk-XI35OFE4.js?v=0c18bb4a:19466 Uncaught TypeError: Failed to fetch dynamically imported module: http://localhost:5173/src/renderer/components/prompt/VariableInputModal.tsx
+client:1035 WebSocket connection to 'ws://localhost:5173/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED
+ping @ client:1035
+waitForSuccessfulPing @ client:1060
+client:1035 WebSocket connection to 'ws://localhost:5173/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED
+ping @ client:1035
+waitForSuccessfulPing @ client:1060
+client:1035 WebSocket connection to 'ws://localhost:5173/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED
+ping @ client:1035
+waitForSuccessfulPing @ client:1060

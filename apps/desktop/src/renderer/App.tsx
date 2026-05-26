@@ -36,6 +36,13 @@ import { CloseDialog } from "./components/ui/CloseDialog";
 import { DataRecoveryDialog } from "./components/ui/DataRecoveryDialog";
 import { BackgroundImageBackdrop } from "./components/ui/BackgroundImageBackdrop";
 import { isWebRuntime } from "./runtime";
+import { ConfirmDialog } from "./components/ui/ConfirmDialog";
+import {
+  previewImportFile,
+  restoreFromFile,
+  ImportPreviewSummary,
+} from "./services/database-backup";
+import { ArchiveIcon } from "lucide-react";
 
 // Lazy load heavy components for better initial load performance
 // 懒加载大型组件以提升初始加载性能
@@ -124,6 +131,17 @@ function App() {
   const [recoverableDatabases, setRecoverableDatabases] = useState<
     RecoveryCandidate[]
   >([]);
+
+  // Drag and drop backup restore state
+  // 拖拽恢复备份状态
+  const [isDraggingBackup, setIsDraggingBackup] = useState(false);
+  const [pendingBackupFile, setPendingBackupFile] = useState<File | null>(null);
+  const [pendingBackupPreview, setPendingBackupPreview] =
+    useState<ImportPreviewSummary | null>(null);
+  const [showRestoreConfirmDialog, setShowRestoreConfirmDialog] =
+    useState(false);
+  const [isRestoring, setIsRestoring] = useState(false);
+  const dragCounterRef = useRef(0);
 
   // Update status (used for TopBar indicator)
   // 更新状态（用于顶部栏显示更新提示）
@@ -1014,6 +1032,116 @@ function App() {
     };
   }, [applyTheme, inferUpdateChannel]);
 
+  // Drag and drop backup restore handlers
+  // 拖拽恢复备份事件处理
+  useEffect(() => {
+    if (isWebRuntime()) {
+      return;
+    }
+
+    const isBackupFile = (file: File): boolean => {
+      return (
+        file.name.endsWith(".phub.gz") ||
+        file.name.endsWith(".phub") ||
+        file.name.endsWith(".zip")
+      );
+    };
+
+    const hasBackupFile = (dataTransfer: DataTransfer | null): boolean => {
+      if (!dataTransfer) return false;
+      return Array.from(dataTransfer.files).some(isBackupFile);
+    };
+
+    const handleDragEnter = (e: DragEvent) => {
+      e.preventDefault();
+      dragCounterRef.current++;
+      if (hasBackupFile(e.dataTransfer)) {
+        setIsDraggingBackup(true);
+      }
+    };
+
+    const handleDragOver = (e: DragEvent) => {
+      e.preventDefault();
+      if (e.dataTransfer) {
+        e.dataTransfer.dropEffect = "copy";
+      }
+    };
+
+    const handleDragLeave = (e: DragEvent) => {
+      e.preventDefault();
+      dragCounterRef.current--;
+      if (dragCounterRef.current <= 0) {
+        setIsDraggingBackup(false);
+        dragCounterRef.current = 0;
+      }
+    };
+
+    const handleDrop = async (e: DragEvent) => {
+      e.preventDefault();
+      dragCounterRef.current = 0;
+      setIsDraggingBackup(false);
+
+      const backupFile = Array.from(e.dataTransfer?.files || []).find(
+        isBackupFile,
+      );
+      if (backupFile) {
+        try {
+          const { summary } = await previewImportFile(backupFile);
+          setPendingBackupFile(backupFile);
+          setPendingBackupPreview(summary);
+          setShowRestoreConfirmDialog(true);
+        } catch (error) {
+          const message =
+            error instanceof Error ? error.message : String(error);
+          showToast(`无法读取备份文件: ${message}`, "error");
+        }
+      }
+    };
+
+    document.addEventListener("dragenter", handleDragEnter);
+    document.addEventListener("dragover", handleDragOver);
+    document.addEventListener("dragleave", handleDragLeave);
+    document.addEventListener("drop", handleDrop);
+
+    return () => {
+      document.removeEventListener("dragenter", handleDragEnter);
+      document.removeEventListener("dragover", handleDragOver);
+      document.removeEventListener("dragleave", handleDragLeave);
+      document.removeEventListener("drop", handleDrop);
+    };
+  }, [showToast]);
+
+  // Handle backup restore confirmation
+  // 处理备份恢复确认
+  const handleConfirmRestore = async () => {
+    if (!pendingBackupFile) return;
+
+    setIsRestoring(true);
+    try {
+      await restoreFromFile(pendingBackupFile);
+      showToast("备份恢复成功", "success");
+      // Refresh data after restore
+      await fetchPrompts();
+      await fetchFolders();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      showToast(`恢复失败: ${message}`, "error");
+    } finally {
+      setIsRestoring(false);
+      setShowRestoreConfirmDialog(false);
+      setPendingBackupFile(null);
+      setPendingBackupPreview(null);
+    }
+  };
+
+  // Cancel backup restore
+  // 取消备份恢复
+  const handleCancelRestore = () => {
+    setShowRestoreConfirmDialog(false);
+    setPendingBackupFile(null);
+    setPendingBackupPreview(null);
+  };
+
   if (isLoading) {
     return (
       <div className="flex h-screen items-center justify-center bg-background">
@@ -1046,6 +1174,22 @@ function App() {
             hasBackgroundImage ? "app-wallpaper-shell" : ""
           }`}
         >
+          {/* Drag and drop overlay */}
+          {/* 拖拽覆盖层 */}
+          {isDraggingBackup && (
+            <div className="absolute inset-0 z-[9999] bg-primary/20 backdrop-blur-sm flex items-center justify-center border-4 border-primary border-dashed m-4 rounded-2xl">
+              <div className="flex flex-col items-center gap-4 p-8 bg-background/90 rounded-xl shadow-lg">
+                <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+                  <ArchiveIcon className="w-8 h-8 text-primary" />
+                </div>
+                <div className="text-lg font-semibold">释放以恢复备份</div>
+                <div className="text-sm text-muted-foreground">
+                  将覆盖现有数据，请确保已备份重要内容
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Windows title bar */}
           {/* Windows 标题栏 */}
           {!isWebRuntime() && <TitleBar />}
@@ -1141,6 +1285,60 @@ function App() {
               />
             </Suspense>
           )}
+
+          {/* Backup restore confirmation dialog */}
+          {/* 备份恢复确认对话框 */}
+          <ConfirmDialog
+            isOpen={showRestoreConfirmDialog}
+            onClose={handleCancelRestore}
+            onConfirm={handleConfirmRestore}
+            title="确认恢复备份？"
+            message={
+              pendingBackupPreview ? (
+                <div className="space-y-4 text-left">
+                  <p className="text-sm text-muted-foreground">
+                    即将从备份文件恢复数据，此操作将<span className="text-red-500 font-medium">覆盖</span>
+                    现有数据：
+                  </p>
+                  <div className="bg-muted rounded-lg p-3 text-xs space-y-1">
+                    <div className="flex justify-between">
+                      <span>Prompts:</span>
+                      <span className="font-medium">{pendingBackupPreview.counts.prompts}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>文件夹:</span>
+                      <span className="font-medium">{pendingBackupPreview.counts.folders}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>版本:</span>
+                      <span className="font-medium">{pendingBackupPreview.counts.versions}</span>
+                    </div>
+                    {pendingBackupPreview.counts.skills > 0 && (
+                      <div className="flex justify-between">
+                        <span>Skills:</span>
+                        <span className="font-medium">{pendingBackupPreview.counts.skills}</span>
+                      </div>
+                    )}
+                    {pendingBackupPreview.counts.rules > 0 && (
+                      <div className="flex justify-between">
+                        <span>Rules:</span>
+                        <span className="font-medium">{pendingBackupPreview.counts.rules}</span>
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-xs text-red-500">
+                    ⚠️ 恢复后无法撤销，请确保已备份重要数据
+                  </p>
+                </div>
+              ) : (
+                "确定要恢复此备份吗？此操作将覆盖现有数据。"
+              )
+            }
+            confirmText="确认恢复"
+            cancelText="取消"
+            variant="destructive"
+            isLoading={isRestoring}
+          />
         </div>
       </div>
     </DndContext>

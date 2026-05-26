@@ -25,12 +25,14 @@ const AiTestModal = lazy(() => import('../prompt/AiTestModal').then(m => ({ defa
 const PromptDetailModal = lazy(() => import('../prompt/PromptDetailModal').then(m => ({ default: m.PromptDetailModal })));
 const VariableInputModal = lazy(() => import('../prompt/VariableInputModal').then(m => ({ default: m.VariableInputModal })));
 const VersionHistoryModal = lazy(() => import('../prompt/VersionHistoryModal').then(m => ({ default: m.VersionHistoryModal })));
+const QuickTagModal = lazy(() => import('../prompt/QuickTagModal').then(m => ({ default: m.QuickTagModal })));
+const QuickMoveFolderModal = lazy(() => import('../prompt/QuickMoveFolderModal').then(m => ({ default: m.QuickMoveFolderModal })));
 const loadingFallback = (
   <div className="flex-1 flex items-center justify-center">
     <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
   </div>
 );
-import { StarIcon, CopyIcon, HistoryIcon, HashIcon, SparklesIcon, EditIcon, TrashIcon, CheckIcon, PlayIcon, LoaderIcon, XIcon, GitCompareIcon, ClockIcon, GlobeIcon, PinIcon, MessageSquareTextIcon, ImageIcon, DownloadIcon, SaveIcon, ZoomInIcon, Share2Icon, PaperclipIcon } from 'lucide-react';
+import { StarIcon, CopyIcon, HistoryIcon, HashIcon, SparklesIcon, EditIcon, TrashIcon, CheckIcon, PlayIcon, LoaderIcon, XIcon, GitCompareIcon, ClockIcon, GlobeIcon, PinIcon, MessageSquareTextIcon, ImageIcon, DownloadIcon, SaveIcon, ZoomInIcon, Share2Icon, PaperclipIcon, FolderIcon } from 'lucide-react';
 import { ContextMenu, ContextMenuItem } from '../ui/ContextMenu';
 import { ImagePreviewModal } from '../ui/ImagePreviewModal';
 import { LocalImage } from '../ui/LocalImage';
@@ -1392,6 +1394,14 @@ function PromptSkillMainContent() {
   const [isVersionModalOpenTable, setIsVersionModalOpenTable] = useState(false);
   const [versionHistoryPrompt, setVersionHistoryPrompt] = useState<Prompt | null>(null);
 
+  // 快速添加标签弹窗状态
+  const [isQuickTagModalOpen, setIsQuickTagModalOpen] = useState(false);
+  const [quickTagPrompt, setQuickTagPrompt] = useState<Prompt | null>(null);
+
+  // 快速移动文件夹弹窗状态
+  const [isQuickMoveFolderModalOpen, setIsQuickMoveFolderModalOpen] = useState(false);
+  const [quickMoveFolderPrompt, setQuickMoveFolderPrompt] = useState<Prompt | null>(null);
+
   // View details - show modal
   // 查看详情 - 弹窗显示
   const handleViewDetail = (prompt: Prompt) => {
@@ -1404,6 +1414,20 @@ function PromptSkillMainContent() {
   const handleVersionHistory = (prompt: Prompt) => {
     setVersionHistoryPrompt(prompt);
     setIsVersionModalOpenTable(true);
+  };
+
+  // Quick add tags
+  // 快速添加标签
+  const handleQuickAddTag = (prompt: Prompt) => {
+    setQuickTagPrompt(prompt);
+    setIsQuickTagModalOpen(true);
+  };
+
+  // Quick move to folder
+  // 快速移动文件夹
+  const handleQuickMoveFolder = (prompt: Prompt) => {
+    setQuickMoveFolderPrompt(prompt);
+    setIsQuickMoveFolderModalOpen(true);
   };
 
   // Restore version (table view)
@@ -1480,6 +1504,16 @@ function PromptSkillMainContent() {
         label: t('prompt.viewDetail'),
         icon: <CheckIcon className="w-4 h-4" />,
         onClick: () => handleViewDetail(contextMenu.prompt),
+      },
+      {
+        label: t('prompt.quickAddTag', '添加标签'),
+        icon: <HashIcon className="w-4 h-4" />,
+        onClick: () => handleQuickAddTag(contextMenu.prompt),
+      },
+      {
+        label: t('prompt.quickMoveFolder', '移动到文件夹'),
+        icon: <FolderIcon className="w-4 h-4" />,
+        onClick: () => handleQuickMoveFolder(contextMenu.prompt),
       },
       {
         label: t('prompt.edit'),
@@ -2451,6 +2485,32 @@ function PromptSkillMainContent() {
           />
         </Suspense>
       )}
+
+      {/* Quick tag modal */}
+      {/* 快速添加标签弹窗 */}
+      <Suspense fallback={null}>
+        <QuickTagModal
+          isOpen={isQuickTagModalOpen}
+          onClose={() => {
+            setIsQuickTagModalOpen(false);
+            setQuickTagPrompt(null);
+          }}
+          prompt={quickTagPrompt}
+        />
+      </Suspense>
+
+      {/* Quick move folder modal */}
+      {/* 快速移动文件夹弹窗 */}
+      <Suspense fallback={null}>
+        <QuickMoveFolderModal
+          isOpen={isQuickMoveFolderModalOpen}
+          onClose={() => {
+            setIsQuickMoveFolderModalOpen(false);
+            setQuickMoveFolderPrompt(null);
+          }}
+          prompt={quickMoveFolderPrompt}
+        />
+      </Suspense>
 
       {/* Image preview modal */}
       {/* 图片预览弹窗 */}
