@@ -714,6 +714,38 @@ async function getAllPromptVersions(): Promise<PromptVersion[]> {
   });
 }
 
+function sortPromptsForRestore(
+  prompts: DatabaseBackup["prompts"],
+): DatabaseBackup["prompts"] {
+  const remaining = new Map(prompts.map((prompt) => [prompt.id, prompt]));
+  const restored = new Set<string>();
+  const ordered: DatabaseBackup["prompts"] = [];
+
+  while (remaining.size > 0) {
+    let progressed = false;
+
+    for (const [id, prompt] of remaining) {
+      if (
+        !prompt.parentId ||
+        restored.has(prompt.parentId) ||
+        !remaining.has(prompt.parentId)
+      ) {
+        ordered.push(prompt);
+        restored.add(id);
+        remaining.delete(id);
+        progressed = true;
+      }
+    }
+
+    if (!progressed) {
+      ordered.push(...remaining.values());
+      break;
+    }
+  }
+
+  return ordered;
+}
+
 function sortFoldersForRestore(
   folders: DatabaseBackup["folders"],
 ): DatabaseBackup["folders"] {
@@ -788,7 +820,7 @@ async function importDatabaseViaMainProcess(
     await window.api.folder.insertDirect(folder);
   }
 
-  for (const prompt of normalizedBackup.prompts) {
+  for (const prompt of sortPromptsForRestore(normalizedBackup.prompts)) {
     await window.api.prompt.insertDirect(prompt);
   }
 
@@ -957,7 +989,7 @@ export async function importDatabase(backup: DatabaseBackup): Promise<void> {
     const folderStore = transaction.objectStore("folders");
     const versionStore = transaction.objectStore(VERSION_STORE);
 
-    for (const prompt of normalizedBackup.prompts) {
+    for (const prompt of sortPromptsForRestore(normalizedBackup.prompts)) {
       promptStore.add(prompt);
     }
 
