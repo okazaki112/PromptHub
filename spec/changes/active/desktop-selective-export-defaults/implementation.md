@@ -25,6 +25,28 @@
 - `tests/unit/components/data-settings-backup-sync.test.tsx`：默认态断言扩展到「背景图」。
 - `tests/unit/services/backup-orchestrator.test.ts`：全量范围断言补 `backgroundImage: true`（2 处）。
 
+## 第三阶段：背景图文件本体可恢复（`ISS-20261012-002`）
+### 缺口取证（探针实测，用后即删）
+构造 `payload.images` 缺背景、`payload.settings.state.backgroundImageFileName="background.png"` 的备份并调用 `importDatabase()`：
+
+```text
+saveImageBase64 calls: []            ← 文件从未写回
+settings restore calls: [[{"state":{"backgroundImageFileName":"background.png"}}]]  ← 引用写回
+```
+
+结论：恢复只回写引用；换设备/重装/新 Profile 后 `applyBackgroundImageVars()` 指向不存在的 `local-image://` 路径，`local-image` 协议对缺失文件返回空路径 ⇒ 背景静默消失且无提示。本轮之前的 zip `images/` 也从不参与恢复，因此该缺口与第二阶段改动无因果关系。
+
+### 修法（用户拍板：背景本体进 payload）
+- `collectImages(prompts, limits, additionalFileNames)` 支持额外待收集文件名，与引用图共用读取、限额与失败处理。
+- `exportDatabase()` 先取设置快照并规范化背景文件名，作为额外名传入；因此全量 JSON/`.phub.gz` 备份与 WebDAV/S3 同步一并携带背景本体。
+- `downloadSelectiveExport()` 把 `referencedImageNames`（Prompt 引用名 ∩ `payload.images` 键）与背景名分开：zip 的 `imageFileNames` 只随「媒体」开关，payload 的 `images` 随「媒体 ∪ 背景」双开关裁剪（新增 `selectImagesByNames()` 辅助）。
+- 恢复侧零代码改动：既有 `payload.images → saveImageBase64` 循环即已覆盖，主进程 `IMAGE_SAVE_BASE64` 的 `validateFileName` 继续防穿越。
+
+### 测试
+- `database-backup.test.ts` 新增 4 例（实现前先红灯 2 例）：背景进 `payload.images`；仅开背景时 payload 只含背景且 `imageFileNames` 为空；关背景时 payload 与 zip 均不含背景；恢复时 `saveImageBase64` 收到背景名与内容。落点为独立新文件 `tests/unit/services/database-backup-background-media.test.ts`（原文件已顶到 1500 行门禁上限，`check-file-line-limits.mjs` 禁止再增长）。
+- `tests/integration/services/database-backup-filesystem.integration.test.ts` 新增真实文件系统用例：背景文件进 payload → 清空图片目录（模拟新设备）→ 恢复 → 断言 `background.png` 与被引用 `integration-image.png` 均按原字节落盘。
+- 备份导出 + 同步相关 10 个测试文件：全绿；desktop eslint、`tsc --noEmit`、`check-file-line-limits.mjs`：exit 0。
+
 ## 验证（第二阶段）
 - `tests/unit/main/data-export-ipc.test.ts` 8 例：新增文件，全绿。
 - 备份导出相关 8 个文件（含新主进程测试）：`Test Files 8 passed`、`Tests 76 passed`。

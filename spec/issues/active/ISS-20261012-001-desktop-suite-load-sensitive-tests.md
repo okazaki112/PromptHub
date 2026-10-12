@@ -32,4 +32,10 @@
 ## Repro / verification notes
 
 - 复现方式：全量并发跑；单文件跑必过（已实测）。
-- 与本轮备份口径改动无因果关系：改动文件清单不含 `packages/core`，且被测组件不依赖 `database-backup` / `data-export` 代码路径。
+- 频率实测（同一台 Windows 机器，4 次全量）：
+  - `v064-bgexport-full.log`：modal 计时用例失败。
+  - `v064-bgexport-full2.log`：`rules-workspace` rename 用例失败（EPERM）。
+  - `v064-bgrestore-full.log`：两条均通过，失败集合与基线完全一致（106 条）。
+  - `v064-bgrestore-final.log`：`rules-workspace` rename 用例再次失败（EPERM，`packages/core/src/rules-workspace.ts:234`），失败文件集合仍与基线逐文件一致。
+  即 rename 争用类偶发约 2/4 次，且始终落在基线已失败的 `tests/unit/main/*` 文件内。
+- 与备份口径改动无因果关系：改动文件清单不含 `packages/core`，且被测组件不依赖 `database-backup` / `data-export` 代码路径。

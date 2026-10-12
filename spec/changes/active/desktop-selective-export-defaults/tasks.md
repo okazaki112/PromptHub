@@ -12,4 +12,7 @@
 - [x] T10 i18n：`settings.exportBackgroundImage` ×7 locale
 - [x] T11 测试补齐：`data-export-ipc.test.ts` 8 例 + `database-backup.test.ts` 传参 4 例 + 组件默认态 + `backup-orchestrator.test.ts` 断言更新
 - [x] T12 全量验证：两轮桌面全量单测（`v064-bgexport-full.log` / `full2.log`）与基线失败文件集合一致；额外 1 条负载敏感偶发用例单独复跑通过，登记 `ISS-20261012-001`；eslint / 文件行数门禁 / desktop-web-cli `tsc --noEmit` 全绿
-- [ ] T13 后续（不属于本变更）：`videos/` 口径对称收紧、更换背景时清理旧文件、`data-layout-v0.5.5-zh.md` §4.1/§10 决策 4 分叉收敛
+- [x] T13 背景恢复缺口取证：探针实测确认 `saveImageBase64` 0 次调用、仅引用回写，登记 `ISS-20261012-002`（探针用后即删）
+- [x] T14 背景本体进 payload：`collectImages()` 支持额外文件名、`exportDatabase()` 取规范化背景名、`downloadSelectiveExport()` 按媒体/背景双开关拆分 payload 与 zip 名单；4 条新用例（先 2 红后全绿）
+- [ ] T15 第三轮全量验证 + 提交 + 文档状态收敛
+- [ ] T16 后续（不属于本变更）：`videos/` 口径对称收紧、更换背景时清理旧文件、`data-layout-v0.5.5-zh.md` §4.1/§10 决策 4 分叉收敛

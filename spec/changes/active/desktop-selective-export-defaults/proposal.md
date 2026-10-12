@@ -13,6 +13,7 @@
 - 默认值：`versions` 由 `false` 改为 `true`。
 - 新增「背景图」独立导出开关（`backgroundImage`，默认勾选，i18n ×7）。
 - 媒体口径收敛：zip 的 `images/` 只打包被导出 Prompt 引用的图片文件名 +（开关开启时）当前背景图文件；不再扫描目录。
+- 背景可恢复：把当前背景图本体作为媒体写进 `payload.images`，恢复时走既有 `saveImageBase64` 通道落盘（修复 `ISS-20261012-002`：此前只有引用回写，异机恢复后背景静默失效）。
 - 契约与结构：`data:exportZip` 的 scope 类型上移到 `packages/shared/types/export-zip.ts`；主进程 handler 从 `main/index.ts` 抽出为 `main/ipc/data-export.ipc.ts` 并补主进程测试。
 - 不改：`videos/`、`prompts/`、`versions/`、`skills/`、`rules/`、`config/` 的整目录递归口径；JSON 侧 `collectImages()` 收集逻辑；恢复语义。
 
@@ -25,4 +26,4 @@
 默认值与新增字段回退即恢复原行为；主进程模块抽取可整体还原为 `main/index.ts` 内联 handler，无数据迁移。
 
 ## Traceability
-FR-SEXP-001..004 → DES-SEXP-001..003 → TEST-SEXP-001..005
+FR-SEXP-001..005 → DES-SEXP-001..004 → TEST-SEXP-001..006
