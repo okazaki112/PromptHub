@@ -47,6 +47,30 @@ settings restore calls: [[{"state":{"backgroundImageFileName":"background.png"}}
 - `tests/integration/services/database-backup-filesystem.integration.test.ts` 新增真实文件系统用例：背景文件进 payload → 清空图片目录（模拟新设备）→ 恢复 → 断言 `background.png` 与被引用 `integration-image.png` 均按原字节落盘。
 - 备份导出 + 同步相关 10 个测试文件：全绿；desktop eslint、`tsc --noEmit`、`check-file-line-limits.mjs`：exit 0。
 
+## 第四阶段：静默失败收口 + 背景缺失可感知（`ISS-20261012-002` 后续反馈）
+### 触发事实
+用户在第二台设备恢复备份后背景图没有生效。直接解析他手上那份 `doc/prompthub-export-2026-10-11.zip`：
+
+```text
+payload.images                          = {}                    ← 没有任何图片本体
+settings.state.backgroundImageFileName  = 05c87b6a-...png       ← 只有引用
+settings.state.backgroundImageEnabled   = true
+zip 内 images/ 条目数                    = 3                     ← 恢复链路从不读这里
+exportedAt                              = 2026-10-11T19:55Z     ← 早于 43dd2779（10-12 03:11Z）
+```
+
+结论：该备份根本不含背景本体，任何代码都救不回来；且用户当时得不到任何提示，只能看到「背景没生效」。
+
+### 落地
+- `database-backup.ts`：`saveImageBase64` / `saveVideoBase64` 显式返回 `false` 时计入 `restoreFailures` 并在恢复末尾抛出（`undefined` ＝ 运行时无桥接，不算失败）。此前主进程 `IMAGE_SAVE_BASE64` 的 catch 分支返回 false 被完全忽略。
+- `AppearanceSettings.tsx`：新增 `image:exists` 探测，引用存在但文件缺失时把区块提示替换为 `settings.backgroundImageMissingFile`；探测异常或无桥接时不显示，避免误报。
+- i18n：`settings.backgroundImageMissingFile` ×7 locale。
+
+### 测试（先红后绿）
+- `database-backup-background-media.test.ts` 新增 2 例：主进程拒绝写入 ⇒ `restoreFromBackup` 抛错并带文件名；无媒体桥接（返回 `undefined`）⇒ 正常完成不误报。改动前 1 例失败（promise 未按预期 reject）。
+- `appearance-settings.test.tsx` 新增 3 例：文件缺失显示提示、文件存在不显示、无引用时不发起探测。改动前 2 例失败（文案找不到、`imageExists` 从未被调用）。
+- 备份恢复 + 外观相关 11 个测试文件：103/103 通过。
+
 ## 验证（第二阶段）
 - `tests/unit/main/data-export-ipc.test.ts` 8 例：新增文件，全绿。
 - 备份导出相关 8 个文件（含新主进程测试）：`Test Files 8 passed`、`Tests 76 passed`。

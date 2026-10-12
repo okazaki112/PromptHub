@@ -30,6 +30,14 @@
 
 代价与连带影响：全量 JSON/`.phub.gz` 备份与 WebDAV/S3 同步（含 `webdavIncludeImages` / `s3IncludeImages`，默认开）同样携带背景 base64，实测当前背景 3.5MB ⇒ payload 约 +4.7MB；zip 内该二进制原本就存在，整包增幅有限。这是「备份可跨机还原外观」的必然成本，不加额外开关面。
 
+## DES-SEXP-005 静默失败收口与缺失可感知
+两处静默被补上：
+
+1. 写入侧：`image:saveBase64` / `video:saveBase64` 在主进程失败时只 `return false`（`main/ipc/image.ipc.ts` IMAGE_SAVE_BASE64 的 catch 分支），而渲染层此前只 `catch` 抛错、不看返回值 ⇒ 任何图片写入失败都不进 `restoreFailures`。现在显式 `false` 计入失败并在恢复结束时抛出（`undefined` 表示运行时无该桥接，如 Web，不算失败，避免误报）。
+2. 感知侧：恢复后 `AppearanceSettings` 用 `image:exists` 探测 `settings.backgroundImageFileName` 指向的文件，`exists === false` 时把背景区块的提示文案换成「文件缺失，请重新选择」（`settings.backgroundImageMissingFile` ×7 locale）。选择该落点而非恢复时的 toast，是因为恢复成功后 1 秒即 `window.location.reload()`，toast 会被重载吃掉；设置页的inline 提示在重载后仍然可见，且正是用户去找背景图的位置。探测失败或无桥接时不显示提示，避免误报。
+
+旧备份（修复前导出，`payload.images` 不含背景本体）无法靠本变更救回本体，只能由这条提示明确告知用户。
+
 ## 验证（TEST-SEXP-*）
 - TEST-SEXP-001 默认可见状态：渲染 `DataSettings activeSubsection="backup"`，「版本历史」「背景图」按钮 `aria-pressed="true"`（`data-settings-backup-sync.test.tsx`）。
 - TEST-SEXP-002 默认端到端：不改勾选点「导出」，`downloadSelectiveExport` 收到 `versions: true, backgroundImage: true`。

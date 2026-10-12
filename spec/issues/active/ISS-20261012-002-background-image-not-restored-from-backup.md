@@ -37,7 +37,18 @@ PROBE settings restore calls: [[{"state":{"backgroundImageFileName":"background.
 - 同机恢复通常不可见（图片目录里文件本来就在）；换设备、重装、清理数据目录或恢复到一个新 Profile 时必然发生。
 - 未被任何 Prompt 引用的历史背景文件不进 `payload.images`，因此也不该被恢复——只有当前背景需要保证可恢复。
 
-## Candidate fixes（待用户拍板）
+## Residual Gap Found On Second Machine（10-12 复测）
+
+用户在第二台设备恢复后背景仍未生效。归因：他恢复的是 `exportedAt = 2026-10-11T19:55Z` 的备份，早于本体进 payload 的修复（`43dd2779`，10-12 03:11Z），该备份 `payload.images = {}`，只有引用没有本体 —— 旧备份不可能救回，需要重新导出。
+
+真正被这次复测暴露的缺陷是「全程无提示」：
+
+1. 主进程 `IMAGE_SAVE_BASE64` 写盘失败只 `return false`，渲染层忽略返回值 ⇒ 图片写入失败静默消失。已修复：`false` 计入 `restoreFailures` 并在恢复末尾抛出；`undefined`（无桥接，如 Web）不算失败。
+2. 恢复后引用指向缺失文件时，`local-image` 协议返回空路径，界面既无背景也无说明。已修复：`AppearanceSettings` 用 `image:exists` 探测并显示 `settings.backgroundImageMissingFile`（×7 locale），无桥接或探测异常时不提示。
+
+测试：`database-backup-background-media.test.ts` +2 例、`appearance-settings.test.tsx` +3 例（先红后绿）。
+
+## Candidate fixes（历史方案，已按方案 1 落地）
 
 1. 在导出 payload 增加独立字段（如 `backgroundImage: { fileName, base64 }`），恢复时与 `payload.images` 走同一 `saveImageBase64` 通道。改动面最小，与既有「引用+本体」恢复模型一致；代价是 JSON 增大（3.5MB 图约 +4.7MB base64，zip 已含同一份二进制，压缩后包体积增幅有限）。
 2. 恢复时改为同时消费 zip 的 `images/` 目录（主进程解压落盘）。zip 成为媒体真源之一，但与 web 导入路径不对称，改动与测试面更大。
