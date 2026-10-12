@@ -10,6 +10,8 @@ import type {
   Prompt,
   PromptRelation,
   PromptRelationQuery,
+  PromptRestoreBatchPayload,
+  PromptRestoreBatchResult,
   PromptVersion,
   SearchQuery,
   UpdateOutputFormatItemDTO,
@@ -35,6 +37,10 @@ export const promptApi = {
   insertDirect: (prompt: Prompt) =>
     ipcRenderer.invoke(IPC_CHANNELS.PROMPT_INSERT_DIRECT, prompt),
   syncWorkspace: () => ipcRenderer.invoke(IPC_CHANNELS.PROMPT_SYNC_WORKSPACE),
+  restoreBatch: (payload: PromptRestoreBatchPayload) =>
+    ipcRenderer.invoke(IPC_CHANNELS.PROMPT_RESTORE_BATCH, payload) as Promise<
+      PromptRestoreBatchResult
+    >,
   /**
    * Atomically migrate legacy IndexedDB data into SQLite via a single
    * main-process transaction. Safe to call multiple times — the handler

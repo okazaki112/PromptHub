@@ -15,12 +15,15 @@ import type {
   PromptRelationQuery,
   PromptRelation,
   PromptVersion,
+  PromptRestoreBatchPayload,
+  PromptRestoreBatchResult,
   SearchQuery,
   UpdateOutputFormatItemDTO,
   UpdatePromptRelationDTO,
   UpdatePromptDTO,
 } from '@prompthub/shared/types';
 import { syncPromptWorkspaceFromDatabase } from "../services/prompt-workspace";
+import { restorePromptSnapshotBatch } from "../services/prompt-restore-batch";
 
 /**
  * Register Prompt-related IPC handlers
@@ -242,6 +245,30 @@ export function registerPromptIPC(db: PromptDB, folderDb: FolderDB, rawDb: Datab
     syncWorkspace();
     return true;
   });
+
+  /**
+   * Atomic backup restore of the prompt graph. Clearing and re-inserting run in
+   * one SQLite transaction, then the workspace is rebuilt exactly once so the
+   * restore cost stops growing with the number of deleted rows.
+   *
+   * 备份恢复的原子批量写入：单事务清空并重建，工作区只同步一次。
+   */
+  ipcMain.handle(
+    IPC_CHANNELS.PROMPT_RESTORE_BATCH,
+    async (
+      _,
+      payload: PromptRestoreBatchPayload,
+    ): Promise<PromptRestoreBatchResult> => {
+      const result = restorePromptSnapshotBatch(
+        { promptDb: db, folderDb, relationDb, outputFormatDb, rawDb },
+        payload,
+      );
+      if (result.restored) {
+        syncWorkspace();
+      }
+      return result;
+    },
+  );
 
   // Get all versions
   // 获取所有版本

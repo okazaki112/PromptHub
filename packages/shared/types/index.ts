@@ -8,6 +8,7 @@ export * from './sync';
 export * from './upgrade-backup';
 export * from './recovery';
 export * from './export-zip';
+export * from './restore-batch';
 export * from './cli';
 export * from './mcp';
 export * from './plugin';

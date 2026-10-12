@@ -229,6 +229,25 @@ describe("database-backup filesystem integration", () => {
             state.prompts.push(prompt);
           }),
           syncWorkspace: vi.fn(async () => undefined),
+          restoreBatch: vi.fn(async (payload: any) => {
+            state.prompts = [...payload.prompts];
+            state.folders = [...payload.folders];
+            state.promptVersions = new Map<string, any[]>();
+            for (const version of payload.versions) {
+              const versions =
+                state.promptVersions.get(version.promptId) ?? [];
+              versions.push(version);
+              state.promptVersions.set(version.promptId, versions);
+            }
+            return {
+              restored: true,
+              promptCount: payload.prompts.length,
+              folderCount: payload.folders.length,
+              versionCount: payload.versions.length,
+              relationCount: payload.promptRelations?.length ?? 0,
+              outputFormatCount: payload.outputFormatItems?.length ?? 0,
+            };
+          }),
         },
         folder: {
           getAll: vi.fn(async () => state.folders),

@@ -26,6 +26,14 @@ export const IPC_CHANNELS = {
    * 若 SQLite 已有数据则直接返回 { imported: false }（防止覆盖）。
    */
   PROMPT_MIGRATE_IDB_BATCH: "prompt:migrateIdbBatch",
+  /**
+   * Atomic backup restore of the prompt graph (folders, prompts, versions,
+   * relations, output formats) in a single SQLite transaction, followed by one
+   * workspace rebuild.
+   *
+   * 备份恢复的原子批量写入：单事务完成清空与重建，工作区只重建一次。
+   */
+  PROMPT_RESTORE_BATCH: "prompt:restoreBatch",
   PROMPT_MOVE: "prompt:move",
   PROMPT_RELATION_CREATE: "promptRelation:create",
   PROMPT_RELATION_INSERT_DIRECT: "promptRelation:insertDirect",

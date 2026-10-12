@@ -918,6 +918,14 @@ describe("database-backup restore", () => {
           insertRelationDirect: vi.fn().mockResolvedValue(undefined),
           insertOutputFormatDirect: vi.fn().mockResolvedValue(undefined),
           syncWorkspace: vi.fn().mockResolvedValue(undefined),
+          restoreBatch: vi.fn().mockResolvedValue({
+            restored: true,
+            promptCount: 2,
+            folderCount: 1,
+            versionCount: 1,
+            relationCount: 1,
+            outputFormatCount: 1,
+          }),
         },
         folder: {
           getAll: vi.fn().mockResolvedValue([folder]),
@@ -985,18 +993,16 @@ describe("database-backup restore", () => {
 
     await restoreFromBackup(backup);
 
-    expect(window.api.folder.delete).toHaveBeenCalledWith("folder-1");
-    expect(window.api.prompt.delete).toHaveBeenCalledWith("prompt-1");
-    expect(window.api.folder.insertDirect).toHaveBeenCalledWith(folder);
-    expect(window.api.prompt.insertDirect).toHaveBeenCalledWith(prompt);
-    expect(window.api.version.insertDirect).toHaveBeenCalledWith(version);
-    expect(window.api.prompt.insertRelationDirect).toHaveBeenCalledWith(
-      promptRelation,
+    expect(window.api.prompt.restoreBatch).toHaveBeenCalledTimes(1);
+    expect(window.api.prompt.restoreBatch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        prompts: [prompt, targetPrompt],
+        folders: [folder],
+        versions: [version],
+        promptRelations: [promptRelation],
+        outputFormatItems: [outputFormatItem],
+      }),
     );
-    expect(window.api.prompt.insertOutputFormatDirect).toHaveBeenCalledWith(
-      outputFormatItem,
-    );
-    expect(window.api.prompt.syncWorkspace).toHaveBeenCalledTimes(1);
     expect(window.electron.saveImageBase64).toHaveBeenCalledWith(
       "image-1.png",
       "base64-image",
@@ -1066,63 +1072,6 @@ describe("database-backup restore", () => {
       }),
     ).rejects.toThrow(
       "Backup restore completed with 1 file errors: image image-1.png",
-    );
-  });
-
-  it("restores folders in parent-first order even when backup payload is unsorted", async () => {
-    const parentFolder = {
-      id: "folder-parent",
-      name: "Parent",
-      createdAt: "2026-04-07T00:00:00.000Z",
-      updatedAt: "2026-04-07T00:00:00.000Z",
-      order: 0,
-    };
-    const childFolder = {
-      id: "folder-child",
-      name: "Child",
-      parentId: "folder-parent",
-      createdAt: "2026-04-07T00:00:01.000Z",
-      updatedAt: "2026-04-07T00:00:01.000Z",
-      order: 0,
-    };
-
-    installWindowMocks({
-      api: {
-        prompt: {
-          getAll: vi.fn().mockResolvedValue([]),
-          delete: vi.fn().mockResolvedValue(true),
-          insertDirect: vi.fn().mockResolvedValue(undefined),
-          syncWorkspace: vi.fn().mockResolvedValue(undefined),
-        },
-        folder: {
-          getAll: vi.fn().mockResolvedValue([]),
-          delete: vi.fn().mockResolvedValue(true),
-          insertDirect: vi.fn().mockResolvedValue(undefined),
-        },
-        version: {
-          insertDirect: vi.fn().mockResolvedValue(undefined),
-        },
-        skill: {
-          deleteAll: vi.fn().mockResolvedValue(undefined),
-        },
-      },
-    });
-
-    await restoreFromBackup({
-      version: 1,
-      exportedAt: "2026-04-07T00:00:00.000Z",
-      prompts: [],
-      folders: [childFolder, parentFolder],
-      versions: [],
-    });
-
-    expect(window.api.folder.insertDirect).toHaveBeenNthCalledWith(
-      1,
-      parentFolder,
-    );
-    expect(window.api.folder.insertDirect).toHaveBeenNthCalledWith(
-      2,
-      childFolder,
     );
   });
 
