@@ -57,14 +57,10 @@ import {
 import {
   configureRuntimePaths,
   getImagesDir,
-  getRulesDir,
   getVideosDir,
-  getSkillsDir,
-  getWorkspaceDir,
-  getPromptsWorkspaceDir,
-  getConfigDir,
 } from "./runtime-paths";
 import { registerAppRuntimeIPC } from "./ipc/app-runtime.ipc";
+import { registerDataExportIPC } from "./ipc/data-export.ipc";
 import { PromptDB } from "./database/prompt";
 import { FolderDB } from "./database/folder";
 import {
@@ -557,6 +553,7 @@ ipcMain.handle(IPC_CHANNELS.APP_RELAUNCH, () => {
 });
 
 registerAppRuntimeIPC();
+registerDataExportIPC();
 
 // Configure minimize-to-tray behavior
 // 设置最小化到托盘
@@ -1092,105 +1089,6 @@ ipcMain.handle("data:dismissRecovery", () => {
   }
   return { success: true };
 });
-
-interface ExportZipScope {
-  prompts: boolean;
-  versions: boolean;
-  images: boolean;
-  videos?: boolean;
-  skills: boolean;
-  rules?: boolean;
-  config: boolean;
-  aiConfigJson?: string;
-  settingsJson?: string;
-  exportJson?: string;
-}
-
-ipcMain.handle(
-  "data:exportZip",
-  async (
-    _event,
-    params: { scope: ExportZipScope },
-  ): Promise<{ canceled: boolean; filePath?: string; error?: string }> => {
-    try {
-      const { zipSync, strToU8 } = await import("fflate");
-      const dateStr = new Date().toISOString().split("T")[0];
-      const { canceled, filePath } = await dialog.showSaveDialog({
-        title: "导出数据",
-        defaultPath: `prompthub-export-${dateStr}.zip`,
-        filters: [{ name: "ZIP Archive", extensions: ["zip"] }],
-      });
-      if (canceled || !filePath) return { canceled: true };
-
-      const zipFiles: Record<
-        string,
-        [Uint8Array, { level: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 }]
-      > = {};
-
-      function collectDirFiles(srcDir: string, zipPrefix: string): void {
-        if (!fs.existsSync(srcDir)) return;
-        const entries = fs.readdirSync(srcDir, { withFileTypes: true });
-        for (const entry of entries) {
-          const fullPath = path.join(srcDir, entry.name);
-          const zipPath = `${zipPrefix}${entry.name}`;
-          if (entry.isDirectory()) {
-            collectDirFiles(fullPath, `${zipPath}/`);
-          } else if (entry.isFile()) {
-            zipFiles[zipPath] = [fs.readFileSync(fullPath), { level: 1 }];
-          }
-        }
-      }
-
-      const { scope } = params;
-      if (scope.prompts) {
-        collectDirFiles(getPromptsWorkspaceDir(), "prompts/");
-      }
-      if (scope.versions) {
-        const versionsDir = path.join(getWorkspaceDir(), ".versions");
-        collectDirFiles(versionsDir, "versions/");
-      }
-      if (scope.skills) {
-        collectDirFiles(getSkillsDir(), "skills/");
-      }
-      if (scope.rules) {
-        collectDirFiles(getRulesDir(), "rules/");
-      }
-      if (scope.images) {
-        collectDirFiles(getImagesDir(), "images/");
-      }
-      if (scope.videos) {
-        collectDirFiles(getVideosDir(), "videos/");
-      }
-      if (scope.config) {
-        collectDirFiles(getConfigDir(), "config/");
-      }
-      if (scope.aiConfigJson) {
-        zipFiles["ai-config.json"] = [
-          strToU8(scope.aiConfigJson),
-          { level: 1 },
-        ];
-      }
-      if (scope.settingsJson) {
-        zipFiles["settings.json"] = [strToU8(scope.settingsJson), { level: 1 }];
-      }
-      if (scope.exportJson) {
-        zipFiles["import-with-prompthub.json"] = [
-          strToU8(scope.exportJson),
-          { level: 1 },
-        ];
-      }
-
-      const zipped = zipSync(zipFiles);
-      fs.writeFileSync(filePath, zipped);
-      return { canceled: false, filePath };
-    } catch (error) {
-      return {
-        canceled: false,
-        error: error instanceof Error ? error.message : String(error),
-      };
-    }
-  },
-);
 
 /**
  * Build the list of candidate paths where a previous database might reside.

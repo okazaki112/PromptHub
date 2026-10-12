@@ -795,6 +795,7 @@
     "exportPrompts": "Prompts",
     "exportFolders": "Carpetas",
     "exportImages": "Medios",
+    "exportBackgroundImage": "Imagen de fondo",
     "exportAiConfig": "Config. IA",
     "exportSettings": "Ajustes",
     "exportVersions": "Historial",

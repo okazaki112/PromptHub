@@ -795,6 +795,7 @@
     "exportPrompts": "Prompts",
     "exportFolders": "Ordner",
     "exportImages": "Medien",
+    "exportBackgroundImage": "Hintergrundbild",
     "exportAiConfig": "KI-Konfig",
     "exportSettings": "Einstellungen",
     "exportVersions": "Verlauf",

@@ -796,6 +796,7 @@
     "exportPrompts": "Prompts",
     "exportFolders": "フォルダー",
     "exportImages": "メディア",
+    "exportBackgroundImage": "背景画像",
     "exportAiConfig": "AI 設定",
     "exportSettings": "アプリ設定",
     "exportVersions": "履歴",

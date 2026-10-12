@@ -48,6 +48,7 @@ import {
   restoreAiConfigSnapshot,
   restoreSettingsStateSnapshot,
 } from "./settings-snapshot";
+import { normalizeBackgroundImageFileName } from "../stores/settings/settings-appearance";
 
 async function collectRuleData(): Promise<RuleBackupRecord[]> {
   const rulesApi = window.api?.rules;
@@ -1283,6 +1284,7 @@ export async function downloadSelectiveExport(
     folders: !!scope.folders,
     versions: !!scope.versions,
     images: !!scope.images,
+    backgroundImage: !!scope.backgroundImage,
     videos: !!scope.videos,
     aiConfig: !!scope.aiConfig,
     settings: !!scope.settings,
@@ -1336,16 +1338,23 @@ export async function downloadSelectiveExport(
   if (typeof window !== "undefined" && window.electron?.exportZip) {
     let aiConfigJson: string | undefined;
     let settingsJson: string | undefined;
+    let backgroundImageFileName: string | undefined;
 
     if (normalized.aiConfig) {
       const snap = getAiConfigSnapshot({ includeRootApiKey: true });
       if (snap) aiConfigJson = JSON.stringify(snap, null, 2);
     }
-    if (normalized.settings) {
-      const snap = getSettingsStateSnapshot({
-        updatedAt: new Date().toISOString(),
-      });
-      if (snap) settingsJson = JSON.stringify(snap, null, 2);
+
+    const settingsSnapshot = getSettingsStateSnapshot({
+      updatedAt: new Date().toISOString(),
+    });
+    if (normalized.settings && settingsSnapshot) {
+      settingsJson = JSON.stringify(settingsSnapshot, null, 2);
+    }
+    if (normalized.backgroundImage) {
+      backgroundImageFileName = normalizeBackgroundImageFileName(
+        settingsSnapshot?.state?.backgroundImageFileName,
+      );
     }
 
     const result = await window.electron.exportZip({
@@ -1353,6 +1362,9 @@ export async function downloadSelectiveExport(
         prompts: normalized.prompts || normalized.folders,
         versions: normalized.versions,
         images: normalized.images,
+        imageFileNames: Object.keys(fullBackup.images ?? {}),
+        backgroundImage: normalized.backgroundImage,
+        backgroundImageFileName,
         videos: normalized.videos,
         skills: normalized.skills,
         rules: normalized.rules,

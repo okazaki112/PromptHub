@@ -1283,10 +1283,16 @@ describe("database-backup restore", () => {
     const exportZipArg = window.electron.exportZip.mock.calls[0]?.[0] as {
       scope: {
         videos?: boolean;
+        imageFileNames?: string[];
+        backgroundImage?: boolean;
+        backgroundImageFileName?: string;
         exportJson?: string;
       };
     };
     expect(exportZipArg.scope.videos).toBe(true);
+    expect(exportZipArg.scope.imageFileNames).toEqual(["image-zip.png"]);
+    expect(exportZipArg.scope.backgroundImage).toBe(false);
+    expect(exportZipArg.scope.backgroundImageFileName).toBeUndefined();
     const embedded = JSON.parse(String(exportZipArg.scope.exportJson)) as {
       kind: string;
       payload: {
@@ -1331,6 +1337,77 @@ describe("database-backup restore", () => {
       "skill-zip-1": [{ relativePath: "SKILL.md", content: "# Writer" }],
     });
     expect(embedded.payload.settingsUpdatedAt).toBe("2026-04-21T00:00:00.000Z");
+  });
+
+  it.each([
+    ["bg.png", "bg.png"],
+    ["../../outside.png", undefined],
+    ["https://cdn.example.com/bg.png", undefined],
+  ])(
+    "resolves the exported background reference %s to %s",
+    async (stored, expected) => {
+      getAllPromptsMock.mockResolvedValue([]);
+      getAllFoldersMock.mockResolvedValue([]);
+      installWindowMocks({
+        api: {
+          version: { getAll: vi.fn().mockResolvedValue([]) },
+          skill: { getAll: vi.fn().mockResolvedValue([]) },
+          rules: { list: vi.fn().mockResolvedValue([]) },
+        },
+      });
+      getSettingsStateSnapshotMock.mockReturnValue({
+        state: { backgroundImageFileName: stored },
+        settingsUpdatedAt: "2026-04-21T00:00:00.000Z",
+      });
+
+      await downloadSelectiveExport({
+        prompts: true,
+        images: false,
+        backgroundImage: true,
+      });
+
+      const exportZipArg = window.electron.exportZip.mock.calls[0]?.[0] as {
+        scope: {
+          imageFileNames?: string[];
+          backgroundImage?: boolean;
+          backgroundImageFileName?: string;
+        };
+      };
+      expect(exportZipArg.scope.backgroundImage).toBe(true);
+      expect(exportZipArg.scope.imageFileNames).toEqual([]);
+      expect(exportZipArg.scope.backgroundImageFileName).toBe(expected);
+    },
+  );
+
+  it("does not name a background file when the background scope is off", async () => {
+    getAllPromptsMock.mockResolvedValue([]);
+    getAllFoldersMock.mockResolvedValue([]);
+    installWindowMocks({
+      api: {
+        version: { getAll: vi.fn().mockResolvedValue([]) },
+        skill: { getAll: vi.fn().mockResolvedValue([]) },
+        rules: { list: vi.fn().mockResolvedValue([]) },
+      },
+    });
+    getSettingsStateSnapshotMock.mockReturnValue({
+      state: { backgroundImageFileName: "bg.png" },
+      settingsUpdatedAt: "2026-04-21T00:00:00.000Z",
+    });
+
+    await downloadSelectiveExport({
+      prompts: true,
+      images: false,
+      backgroundImage: false,
+    });
+
+    const exportZipArg = window.electron.exportZip.mock.calls[0]?.[0] as {
+      scope: {
+        backgroundImage?: boolean;
+        backgroundImageFileName?: string;
+      };
+    };
+    expect(exportZipArg.scope.backgroundImage).toBe(false);
+    expect(exportZipArg.scope.backgroundImageFileName).toBeUndefined();
   });
 
   it("rejects arbitrary JSON files without clearing existing data", async () => {

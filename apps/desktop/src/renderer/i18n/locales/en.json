@@ -798,6 +798,7 @@
     "exportPrompts": "Prompts",
     "exportFolders": "Folders",
     "exportImages": "Media",
+    "exportBackgroundImage": "Background image",
     "exportAiConfig": "AI config",
     "exportSettings": "App settings",
     "exportVersions": "Version history",

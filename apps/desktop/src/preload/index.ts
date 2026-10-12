@@ -34,6 +34,8 @@ import type {
   RecoveryCandidate,
   RecoveryPreviewResult,
   RecoveryScanOptions,
+  ExportZipResult,
+  ExportZipScope,
   AppCommand,
 } from "@prompthub/shared/types";
 
@@ -257,20 +259,8 @@ contextBridge.exposeInMainWorld("electron", {
   performRecovery: (sourcePath: string) =>
     ipcRenderer.invoke("data:performRecovery", sourcePath),
   dismissRecovery: () => ipcRenderer.invoke("data:dismissRecovery"),
-  exportZip: (params: {
-    scope: {
-      prompts: boolean;
-      versions: boolean;
-      images: boolean;
-      videos?: boolean;
-      skills: boolean;
-      rules?: boolean;
-      config: boolean;
-      aiConfigJson?: string;
-      settingsJson?: string;
-      exportJson?: string;
-    };
-  }) => ipcRenderer.invoke("data:exportZip", params),
+  exportZip: (params: { scope: ExportZipScope }) =>
+    ipcRenderer.invoke(IPC_CHANNELS.DATA_EXPORT_ZIP, params),
   // Updater
   // 更新器
   updater: {
@@ -562,19 +552,8 @@ declare global {
       }>;
       dismissRecovery?: () => Promise<{ success: boolean }>;
       exportZip?: (params: {
-        scope: {
-          prompts: boolean;
-          versions: boolean;
-          images: boolean;
-          videos?: boolean;
-          skills: boolean;
-          rules?: boolean;
-          config: boolean;
-          aiConfigJson?: string;
-          settingsJson?: string;
-          exportJson?: string;
-        };
-      }) => Promise<{ canceled: boolean; filePath?: string; error?: string }>;
+        scope: ExportZipScope;
+      }) => Promise<ExportZipResult>;
       updater?: {
         check: (
           options?:

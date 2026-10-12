@@ -640,6 +640,9 @@ describe("DataSettings", { timeout: 60_000 }, () => {
     expect(
       screen.getByRole("button", { name: "Version history" }),
     ).toHaveAttribute("aria-pressed", "true");
+    expect(
+      screen.getByRole("button", { name: "Background image" }),
+    ).toHaveAttribute("aria-pressed", "true");
 
     fireEvent.click(screen.getByRole("button", { name: "Export Data" }));
     await act(async () => {
@@ -647,7 +650,7 @@ describe("DataSettings", { timeout: 60_000 }, () => {
     });
 
     expect(downloadSelectiveExport).toHaveBeenCalledWith(
-      expect.objectContaining({ versions: true }),
+      expect.objectContaining({ versions: true, backgroundImage: true }),
     );
   });
 });

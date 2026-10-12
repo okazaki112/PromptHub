@@ -16,6 +16,7 @@ export type ExportScopeKey =
   | "prompts"
   | "folders"
   | "images"
+  | "backgroundImage"
   | "videos"
   | "aiConfig"
   | "settings"

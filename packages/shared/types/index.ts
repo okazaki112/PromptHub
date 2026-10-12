@@ -7,6 +7,7 @@ export * from './rules';
 export * from './sync';
 export * from './upgrade-backup';
 export * from './recovery';
+export * from './export-zip';
 export * from './cli';
 export * from './mcp';
 export * from './plugin';

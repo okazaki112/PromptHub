@@ -78,6 +78,7 @@ async function downloadExportFile(): Promise<void> {
     folders: true,
     versions: true,
     images: true,
+    backgroundImage: true,
     videos: true,
     aiConfig: true,
     settings: true,

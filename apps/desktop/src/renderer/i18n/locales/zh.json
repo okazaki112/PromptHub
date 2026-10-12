@@ -798,6 +798,7 @@
     "exportPrompts": "Prompts",
     "exportFolders": "文件夹",
     "exportImages": "媒体",
+    "exportBackgroundImage": "背景图",
     "exportAiConfig": "AI 配置",
     "exportSettings": "系统设置",
     "exportVersions": "版本历史",
