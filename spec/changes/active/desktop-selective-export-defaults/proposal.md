@@ -1,28 +1,28 @@
-# Proposal: 选择性导出默认范围与媒体目录打包口径
+# Proposal: 选择性导出默认范围与媒体打包口径
 
 ## Change Key
-`desktop-selective-export-defaults`（v0.6.4，体验 + 备份边界澄清）
+`desktop-selective-export-defaults`（v0.6.4，体验 + 备份边界收敛）
 
 ## Why
-「选择性导出」勾选清单里 9 个范围项只有「版本历史」默认关闭（`useBackupExportActions.ts:11-21`），而「全量备份」路径硬编码含版本（`backup-orchestrator.ts:75-87`）。两条导出入口对同一份数据给出不同默认，用户需手动补勾才拿到版本历史，否则恢复后丢失 Prompt 版本链。
+两个问题同源于「选择性导出」这一条用户流程：
 
-同时实测暴露第二个问题：勾选「媒体」时，备份 zip 的 `images/` 是磁盘图片目录的整目录拷贝，而非被导出内容引用的图片集合，导致桌面背景图（含已弃用的历史背景）进入备份。需把这一打包口径写清并留待决策。
+1. 9 个范围项里只有「版本历史」默认关闭（`useBackupExportActions.ts`），而「全量备份」路径硬编码含版本。两条导出入口口径不一致，用户必须手动补勾才能拿到 Prompt 版本链。
+2. 勾选「媒体」时，zip 的 `images/` 是磁盘图片目录的整目录无过滤拷贝，因此桌面背景图、以及换背景时永不删除的历史残留都会进包。实测一份 9.4MB 备份里 8.6MB 是图片，其中只有 1 张是当前背景、0 张被任何 Prompt 引用。
 
 ## Scope
-- 默认值：`versions` 由 `false` 改为 `true`，其余 8 项不变。
-- 文档：记录 zip 目录打包口径与 `spec/knowledge/structure/data-layout-v0.5.5-zh.md` 的实现偏差。
-- 不改：JSON 侧 `collectImages()` 收集口径、zip 目录结构、恢复语义、i18n 文案。
+- 默认值：`versions` 由 `false` 改为 `true`。
+- 新增「背景图」独立导出开关（`backgroundImage`，默认勾选，i18n ×7）。
+- 媒体口径收敛：zip 的 `images/` 只打包被导出 Prompt 引用的图片文件名 +（开关开启时）当前背景图文件；不再扫描目录。
+- 契约与结构：`data:exportZip` 的 scope 类型上移到 `packages/shared/types/export-zip.ts`；主进程 handler 从 `main/index.ts` 抽出为 `main/ipc/data-export.ipc.ts` 并补主进程测试。
+- 不改：`videos/`、`prompts/`、`versions/`、`skills/`、`rules/`、`config/` 的整目录递归口径；JSON 侧 `collectImages()` 收集逻辑；恢复语义。
 
 ## Risks
-- 默认含版本会让选择性导出体积增大（实测样例：`versions/` 361 个 md 文件，远小于同包内 8.6MB 图片）。
-- 用户若期望「轻量导出」需手动取消勾选；无持久化记忆（局部 `useState`，重开面板回到默认）。
+- 默认含版本使导出体积增大（实测样例 361 个版本文件、643KB，远小于原先被裁掉的 8.6MB 图片）。
+- 「媒体」不再带走未被引用的图片：换设备迁移时，用户手工放进图片目录但未关联 Prompt 的文件不再随包出发。恢复侧不受影响——桌面恢复链路只读 `import-with-prompthub.json`，zip 内的 `images/` 从来不是恢复输入（`database-backup.ts` 解压只取该条目，媒体经 payload base64 落盘；`apps/web/src/routes/import-export.ts` 同理）。
+- 抽出主进程 handler 属结构改动：注册时机保持模块顶层一次（不进 `registerAllIPC`，避免 DB 重绑定时二次注册抛错）。
 
 ## Rollback
-单行默认值回退 + 删除新增用例，无数据迁移、无契约变更。
-
-## 待确认（需用户拍板，本轮不动代码）
-1. `images/` 是否改为「只打包被引用文件 + 当前背景引用文件」。影响恢复：未被引用的历史背景图将不再随备份回来。
-2. 更换桌面背景时是否清理旧文件（当前 `image.ipc.ts` 只有整目录 `IMAGE_CLEAR`，无单文件删除通道，历史背景会永久累积）。
+默认值与新增字段回退即恢复原行为；主进程模块抽取可整体还原为 `main/index.ts` 内联 handler，无数据迁移。
 
 ## Traceability
-FR-SEXP-001..002 → DES-SEXP-001..002 → TEST-SEXP-001..002
+FR-SEXP-001..004 → DES-SEXP-001..003 → TEST-SEXP-001..005

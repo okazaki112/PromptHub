@@ -4,5 +4,12 @@
 - [x] T2 测试先行：`data-settings-backup-sync.test.tsx` 新增默认可见状态 + 导出实参用例（先红灯复现 `aria-pressed="false"`）
 - [x] T3 实现：`DEFAULT_EXPORT_SCOPE.versions` 翻转为 `true`
 - [x] T4 备份媒体口径取证：解析 `doc/prompthub-export-2026-10-11.zip` 与本机 `data/assets/images` 实盘逐文件对照，确认整目录拷贝根因
-- [x] T5 分层验证：目标文件 9/9 → 备份导出相关 7 文件 64/64 → 桌面全量 `30 failed | 358 passed (388)`、`106 failed | 3285 passed`，与基线 `task-plan/v063-full2.log`（30/106 失败）失败集合规模一致 ⇒ 零新增回归；eslint 与 `tsc --noEmit` 均 exit 0
-- [ ] T6 收敛：把待确认项（媒体目录过滤、旧背景清理）交用户拍板；稳定文档偏差留待后续 change 收敛
+- [x] T5 分层验证（第一阶段）：目标文件 9/9 → 备份导出相关 7 文件 64/64 → 桌面全量 `30 failed | 358 passed (388)`、`106 failed | 3285 passed`，与基线 `task-plan/v063-full2.log`（30/106 失败）失败规模一致 ⇒ 零新增回归；eslint 与 `tsc --noEmit` 均 exit 0
+- [x] T6 契约上移：新增 `packages/shared/types/export-zip.ts`，主进程/preload 改用 `IPC_CHANNELS.DATA_EXPORT_ZIP` 与共享类型
+- [x] T7 主进程模块化：`main/ipc/data-export.ipc.ts` 承载 handler，`main/index.ts` 删除内联块与失效导入，模块顶层注册一次
+- [x] T8 媒体口径收紧：`addNamedAssetFiles()` + `resolveAssetPath()` 按名取文件，背景图独立开关
+- [x] T9 渲染层：`backgroundImage` 进入 `ExportScopeKey` / 默认值 / 导出项清单 / `downloadSelectiveExport` 传参；全量备份补 `backgroundImage: true`
+- [x] T10 i18n：`settings.exportBackgroundImage` ×7 locale
+- [x] T11 测试补齐：`data-export-ipc.test.ts` 8 例 + `database-backup.test.ts` 传参 4 例 + 组件默认态 + `backup-orchestrator.test.ts` 断言更新
+- [x] T12 全量验证：两轮桌面全量单测（`v064-bgexport-full.log` / `full2.log`）与基线失败文件集合一致；额外 1 条负载敏感偶发用例单独复跑通过，登记 `ISS-20261012-001`；eslint / 文件行数门禁 / desktop-web-cli `tsc --noEmit` 全绿
+- [ ] T13 后续（不属于本变更）：`videos/` 口径对称收紧、更换背景时清理旧文件、`data-layout-v0.5.5-zh.md` §4.1/§10 决策 4 分叉收敛

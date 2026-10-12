@@ -1,42 +1,43 @@
 # Implementation: desktop-selective-export-defaults
 
-## 实际落地
-- `apps/desktop/src/renderer/components/settings/data-settings/useBackupExportActions.ts`：`DEFAULT_EXPORT_SCOPE.versions` `false → true`（1 行，唯一默认值来源）。
-- `apps/desktop/tests/unit/components/data-settings-backup-sync.test.tsx`：新增用例 `selects version history by default in the selective export checklist`，断言真实渲染面板中「版本历史」按钮 `aria-pressed="true"`，并点击「导出」后断言 `downloadSelectiveExport` 收到 `versions: true`（FR-SEXP-001 / FR-SEXP-002）。
-- 未新增 i18n 键、未改 IPC/preload 契约、未改存储布局，因此无迁移与回滚成本。
+## 第一阶段：默认含版本历史
+- `renderer/components/settings/data-settings/useBackupExportActions.ts`：`DEFAULT_EXPORT_SCOPE.versions` `false → true`。
+- `tests/unit/components/data-settings-backup-sync.test.tsx`：新增用例断言真实渲染面板中「版本历史」`aria-pressed="true"`，且点「导出」时 `downloadSelectiveExport` 收到 `versions: true`。改动前先红灯（实测 `aria-pressed="false"`）。
+- 提交：`7317d0f3 feat(desktop): include version history in selective export defaults`。
 
-## 备份含背景图的结论（对用户问题的交付）
-根因是两套收集口径不一致，而非偶发缺陷：
+## 第二阶段：背景图独立开关 + 媒体按引用打包
+### 落地清单
+- 新增 `packages/shared/types/export-zip.ts`：`ExportZipScope`（含 `imageFileNames`、`backgroundImage`、`backgroundImageFileName`）与 `ExportZipResult`，经 `types/index.ts` 导出。
+- 新增 `apps/desktop/src/main/ipc/data-export.ipc.ts`：`registerDataExportIPC()`。图片目录不再整目录递归，改由 `addNamedAssetFiles()` 按名取文件；`resolveAssetPath()` 要求裸 basename、拒绝空字节/`..`/嵌套/绝对路径，且解析结果必须落在资源目录内；文件缺失静默跳过。其余目录（prompts/versions/skills/rules/videos/config）保持 `collectDirFiles` 递归。
+- `apps/desktop/src/main/index.ts`：删除内联 `data:exportZip` handler（98 行）与 5 个失效的 runtime-path 导入，在 `registerAppRuntimeIPC()` 之后调用 `registerDataExportIPC()`（模块顶层一次，避免 DB 重绑定二次注册）。
+- `apps/desktop/src/preload/index.ts`：`exportZip` 实现与 `window.electron` 类型声明改用共享类型，通道名改用 `IPC_CHANNELS.DATA_EXPORT_ZIP`。
+- 渲染层：`data-settings-controller-utils.ts` 的 `ExportScopeKey` 增 `backgroundImage`；`useBackupExportActions.ts` 默认 `true` 并在清单中「媒体」之后插入 `settings.exportBackgroundImage`；`database-backup-format.ts` 的 `ExportScope` 增可选 `backgroundImage`；`database-backup.ts` 的 `downloadSelectiveExport()` 归一化该键、传 `imageFileNames = Object.keys(fullBackup.images ?? {})`，并在开启时用 `normalizeBackgroundImageFileName()` 规范化设置快照里的背景引用后传 `backgroundImageFileName`；`backup-orchestrator.ts` 的全量范围补 `backgroundImage: true`。
+- i18n：`settings.exportBackgroundImage` ×7 locale（en/zh/zh-TW/ja/fr/de/es）。
 
-| 口径 | 实现 | 结果 |
-| ---- | ---- | ---- |
-| JSON 内媒体 | `database-backup.ts:147-209` `collectImages()` 只遍历 `prompt.images` 引用 | 本次备份 `payload.images` 为空 |
-| ZIP 内 `images/` | `main/index.ts:1158-1160` `collectDirFiles(getImagesDir(), "images/")` 无过滤递归 | 整目录拷贝，含桌面背景 |
+### 行为变化
+- 勾选「媒体」不再带走未被 Prompt 引用的图片；实测样例中 8.62MB 的 3 张图片里，只有当前背景（3.5MB）会因「背景图」开关保留，`96abfc4a-...png`(4.9MB) 与 `453df50b-...jpg`(215KB) 这类历史残留不再进包。
+- 「背景图」可单独关闭，用于交付纯净的 Prompt 内容包。
+- 恢复链路不受影响：`.zip` 恢复只读 `import-with-prompthub.json`（桌面 `unzipExportToText`、Web `routes/import-export.ts` 同口径），媒体经 payload base64 落盘，背景引用随 `payload.settings.state` 恢复。
 
-背景图落盘位置与 Prompt 图片同目录：`AppearanceSettings.tsx:285-312` → `IMAGE_SAVE`（`image.ipc.ts:359-394`）以 uuid 名写入 `getImagesDir()`（`runtime-paths.ts:180-185` = `data/assets/images`），settings 只存文件名。所以勾选「媒体」必然带走背景图。
+### 测试
+- 新增 `tests/unit/main/data-export-ipc.test.ts` 8 例：按名打包且排除未引用文件、背景开关开/关、无背景引用、非法名与缺失文件跳过、其余目录递归与 videos 整目录、三个 JSON 条目按提供才写、对话框取消不建包、写盘失败返回结构化 error。
+- `tests/unit/services/database-backup.test.ts`：既有 ZIP 用例补 `imageFileNames` / `backgroundImage` 断言；新增 `it.each` 3 例覆盖正常名、`../` 越界名、URL 形态；新增「关闭背景开关不传文件名」1 例。
+- `tests/unit/components/data-settings-backup-sync.test.tsx`：默认态断言扩展到「背景图」。
+- `tests/unit/services/backup-orchestrator.test.ts`：全量范围断言补 `backgroundImage: true`（2 处）。
 
-实测取证（`doc/prompthub-export-2026-10-11.zip`）：
+## 验证（第二阶段）
+- `tests/unit/main/data-export-ipc.test.ts` 8 例：新增文件，全绿。
+- 备份导出相关 8 个文件（含新主进程测试）：`Test Files 8 passed`、`Tests 76 passed`。
+- `pnpm` 桌面 eslint 全量（`--max-warnings 0`）：exit 0；`node scripts/check-file-line-limits.mjs`：通过（新文件 ≤1500、遗留文件未增长）。
+- 类型检查：`apps/desktop` / `apps/web` / `apps/cli` 三处 `tsc --noEmit` 均 exit 0（共享类型新增导出无命名冲突）。
+- 桌面全量单测两轮：
+  - 第一轮 `task-plan/v064-bgexport-full.log`：`31 failed | 358 passed (389)`、`107 failed | 3296 passed | 1 skipped (3404)`。
+  - 第二轮 `task-plan/v064-bgexport-full2.log`：`30 failed | 359 passed (389)`、`107 failed | 3296 passed | 1 skipped (3404)`。
+  - 基线 `task-plan/v063-full2.log`：`30 failed | 356 passed (386)`、`106 failed | 3266 passed (3373)`。
+  - 第二轮失败**文件集合**与基线逐文件一致（`comm` 差集为空）；两轮各多出的 1 条失败用例经单独复跑均通过，定性为负载敏感偶发，已登记 `spec/issues/active/ISS-20261012-001-desktop-suite-load-sensitive-tests.md`。本轮改动不含 `packages/core`，与该路径无因果关系。
+- 未做：Electron 实机点击导出并解压核对 zip。若要该层证据，需起 `pnpm electron:dev` 走一次真实导出。
 
-| 顶层 | 文件数 | 字节 | 说明 |
-| ---- | ------ | ---- | ---- |
-| `images/` | 3 | 8,619,926 | 占包体绝大部分 |
-| `versions/` | 361 | 643,085 | |
-| `prompts/` | 104 | 228,774 | |
-| `rules/` | 22 | 44,380 | |
-| 根（3 个 json） | 3 | 1,020,831 | `import-with-prompthub.json` / `settings.json` / `ai-config.json` |
-
-- `settings.json` 中 `backgroundImageFileName = 05c87b6a-0de2-4669-a163-eea107c56dbf.png`，与 `images/` 内同名文件一致 ⇒ 当前背景确在包内。
-- 本机 `%APPDATA%/PromptHub/data/assets/images` 实盘只有这 3 个文件，与 zip 逐一对应 ⇒ 证实「整目录拷贝」。
-- 其中 `96abfc4a-...png`(4.9MB) 与 `453df50b-...jpg`(215KB) 未被任何 Prompt 引用、也不是当前背景 ⇒ 历史背景残留。更换背景只替换引用，旧文件不删除（`image.ipc.ts` 无单文件删除通道，仅 `IMAGE_CLEAR` 清目录），因此每次备份都会带上死数据。
-
-## 偏差与记录
-- 稳定文档 `spec/knowledge/structure/data-layout-v0.5.5-zh.md` §4.1 规定 zip 布局为 `assets/images/` + `manifest.json`/`README.txt`，实现为顶层 `images/` + `import-with-prompthub.json`；§10 决策 4 规定「AI 配置/设置默认不导出」，实现默认 `true`。本轮不改代码、不改文档结论，只在 design.md 记录偏差，留待独立 change 收敛（实现与文档分歧不得静默择一）。
-- 验证替代说明：zip 实际写出发生在主进程 `main/index.ts` 的 `data:exportZip` 处理器内（未导出、无测试挂载点），因此 FR-SEXP-002 的持久层证据由「渲染层传给 IPC 的 scope」+ 用户实包解压对照提供；主进程目录打包口径缺少回归网，已记为后续补测项。
-
-## 验证
-- `npx vitest run tests/unit/components/data-settings-backup-sync.test.tsx`：9/9 通过；改动前先红灯（`aria-pressed="false"`）。
-- 备份导出相关 7 个测试文件（`data-settings-backup-sync` / `backup-guidance-card` / `backup-drop-restore-layer` / `backup-orchestrator` / `database-backup` / `database-backup-format` / `database-backup-filesystem.integration`）：64/64 通过。
-- `npx eslint <两个变更文件> --max-warnings 0`：exit 0。
-- `npx tsc --noEmit`（apps/desktop）：exit 0。
-- 桌面全量单测：`Test Files 30 failed | 358 passed (388)`，`Tests 106 failed | 3285 passed | 1 skipped (3392)`。与基线 `task-plan/v063-full2.log`（`30 failed | 356 passed (386)`，`106 failed | 3266 passed`）失败文件数与失败用例数完全一致，通过数按新增用例增加 ⇒ 零新增回归。基线失败全部集中在 `tests/unit/main/*`，主因是本机无创建符号链接权限（`EPERM: operation not permitted, symlink`，基线日志内 80 次），与本轮渲染进程改动无关。
-- 未做：Electron 实机点击验证（本次改动为单行默认值，可见状态已由组件渲染层用例覆盖）。
+## 偏差与遗留
+- 稳定文档 `spec/knowledge/structure/data-layout-v0.5.5-zh.md` §4.1（`assets/images/`、`manifest.json`/`README.txt`）与 §10 决策 4（AI 配置/设置默认不导出）本已与实现分叉；本轮后 zip 的 `images/` 也不再等于磁盘目录内容。未静默择一，留待独立 change 收敛。
+- `videos/` 仍为整目录拷贝，未被引用的视频依然进包；与本轮媒体口径同类，未扩大改动面。
+- 更换桌面背景时旧文件仍不清理（`main/ipc/image.ipc.ts` 无单文件删除通道，仅 `IMAGE_CLEAR` 清目录）。磁盘死数据未消除，只是不再进备份。
