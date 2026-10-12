@@ -63,7 +63,10 @@ function promptReferencingImage() {
   };
 }
 
-function installMediaMocks(backgroundFileName?: string) {
+function installMediaMocks(
+  backgroundFileName?: string,
+  saveImageResult: boolean | undefined = true,
+) {
   getAllPromptsMock.mockResolvedValue([promptReferencingImage()]);
   getAllFoldersMock.mockResolvedValue([]);
   getSettingsStateSnapshotMock.mockReturnValue({
@@ -99,7 +102,7 @@ function installMediaMocks(backgroundFileName?: string) {
           fileName === BACKGROUND_IMAGE ? "bg-base64" : "ref-base64",
         ),
       ),
-      saveImageBase64: vi.fn().mockResolvedValue(undefined),
+      saveImageBase64: vi.fn().mockResolvedValue(saveImageResult),
     },
   });
 }
@@ -163,6 +166,57 @@ describe("selective export background media", () => {
     expect(embeddedPayloadImages(scope)).toEqual({
       [REFERENCED_IMAGE]: "ref-base64",
     });
+  });
+
+  it("surfaces a media file the main process refused to write", async () => {
+    installMediaMocks(BACKGROUND_IMAGE, false);
+
+    await expect(
+      restoreFromBackup({
+        version: 1,
+        exportedAt: "2026-10-12T00:00:00.000Z",
+        prompts: [],
+        folders: [
+          {
+            id: "folder-1",
+            name: "Folder",
+            createdAt: "2026-10-12T00:00:00.000Z",
+            updatedAt: "2026-10-12T00:00:00.000Z",
+            order: 0,
+          },
+        ],
+        versions: [],
+        images: { "broken.png": "not-base64" },
+      } as never),
+    ).rejects.toThrow(/broken\.png/);
+  });
+
+  it("does not treat a runtime without a media bridge as a write failure", async () => {
+    installMediaMocks(BACKGROUND_IMAGE, undefined);
+
+    await expect(
+      restoreFromBackup({
+        version: 1,
+        exportedAt: "2026-10-12T00:00:00.000Z",
+        prompts: [],
+        folders: [
+          {
+            id: "folder-1",
+            name: "Folder",
+            createdAt: "2026-10-12T00:00:00.000Z",
+            updatedAt: "2026-10-12T00:00:00.000Z",
+            order: 0,
+          },
+        ],
+        versions: [],
+        images: { "ok.png": "ok-base64" },
+      } as never),
+    ).resolves.toMatchObject({ prompts: 0 });
+
+    expect(window.electron.saveImageBase64).toHaveBeenCalledWith(
+      "ok.png",
+      "ok-base64",
+    );
   });
 
   it("restores the background image file from exported media", async () => {

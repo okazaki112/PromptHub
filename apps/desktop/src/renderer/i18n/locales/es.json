@@ -701,6 +701,7 @@
     "disableBackgroundImage": "Desactivar",
     "backgroundImageEnabledHint": "La imagen de fondo está activada actualmente en el contenedor de escritorio.",
     "backgroundImageDisabledHint": "La imagen de fondo se conserva, pero ahora está desactivada.",
+    "backgroundImageMissingFile": "Falta el archivo de imagen de fondo en este dispositivo. Vuelve a elegir una imagen para recuperarlo.",
     "backgroundImageOpacity": "Visibilidad del fondo",
     "backgroundImageBlur": "Intensidad del desenfoque",
     "customColor": "Personalizado",

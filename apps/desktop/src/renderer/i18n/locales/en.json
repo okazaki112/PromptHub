@@ -703,6 +703,7 @@
     "disableBackgroundImage": "Disable",
     "backgroundImageEnabledHint": "Background image is currently enabled for the desktop shell.",
     "backgroundImageDisabledHint": "Background image is saved but currently disabled.",
+    "backgroundImageMissingFile": "The background image file is missing on this device. Choose an image again to bring it back.",
     "backgroundImageOpacity": "Background visibility",
     "backgroundImageBlur": "Blur strength",
     "customColor": "Custom",

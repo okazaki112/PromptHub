@@ -1,4 +1,4 @@
-import { cloneElement, useId, useMemo, useState } from "react";
+import { cloneElement, useEffect, useId, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import {
   DndContext,
@@ -205,6 +205,42 @@ export function AppearanceSettings() {
   );
 
   const hasBackgroundImage = Boolean(settings.backgroundImageFileName);
+  const [isBackgroundFileMissing, setIsBackgroundFileMissing] =
+    useState(false);
+
+  // A restored backup can carry the background reference without the picture
+  // itself (exports made before media was bundled), which otherwise shows up as
+  // "no background" with no explanation at all.
+  useEffect(() => {
+    const fileName = settings.backgroundImageFileName;
+    if (webRuntime || !fileName) {
+      setIsBackgroundFileMissing(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        const exists = await window.electron?.imageExists?.(fileName);
+        if (!cancelled) {
+          setIsBackgroundFileMissing(exists === false);
+        }
+      } catch (error) {
+        console.warn(
+          `Failed to check the background image ${fileName}:`,
+          error,
+        );
+        if (!cancelled) {
+          setIsBackgroundFileMissing(false);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [settings.backgroundImageFileName, webRuntime]);
   const isBackgroundImageEnabled =
     hasBackgroundImage && settings.backgroundImageEnabled;
   const backgroundOpacityPercent = useMemo(
@@ -720,15 +756,20 @@ export function AppearanceSettings() {
 
             {hasBackgroundImage ? (
               <p className="text-xs text-muted-foreground">
-                {isBackgroundImageEnabled
+                {isBackgroundFileMissing
                   ? t(
-                      "settings.backgroundImageEnabledHint",
-                      "Background image is currently enabled for the desktop shell.",
+                      "settings.backgroundImageMissingFile",
+                      "The background image file is missing on this device. Choose an image again to bring it back.",
                     )
-                  : t(
-                      "settings.backgroundImageDisabledHint",
-                      "Background image is saved but currently disabled.",
-                    )}
+                  : isBackgroundImageEnabled
+                    ? t(
+                        "settings.backgroundImageEnabledHint",
+                        "Background image is currently enabled for the desktop shell.",
+                      )
+                    : t(
+                        "settings.backgroundImageDisabledHint",
+                        "Background image is saved but currently disabled.",
+                      )}
               </p>
             ) : null}
 

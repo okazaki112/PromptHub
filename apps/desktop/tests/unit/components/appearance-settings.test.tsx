@@ -1,4 +1,4 @@
-import { act, fireEvent, screen, within } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AppearanceSettings } from "../../../src/renderer/components/settings/AppearanceSettings";
@@ -265,5 +265,56 @@ describe("AppearanceSettings", () => {
 
     fireEvent.click(within(promptsCard as HTMLElement).getByRole("button", { name: "Disabled" }));
     expect(settingsState.toggleDesktopHomeModule).toHaveBeenCalled();
+  });
+
+  it("warns when the referenced background image file is missing", async () => {
+    useSettingsStoreMock.mockReturnValue(
+      createSettingsState({ backgroundImageFileName: "wallpaper.png" }),
+    );
+    installWindowMocks({
+      electron: { imageExists: vi.fn().mockResolvedValue(false) },
+    });
+
+    await act(async () => {
+      await renderWithI18n(<AppearanceSettings />, { language: "en" });
+    });
+
+    expect(
+      await screen.findByText(
+        "The background image file is missing on this device. Choose an image again to bring it back.",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("stays quiet when the referenced background image file exists", async () => {
+    const imageExists = vi.fn().mockResolvedValue(true);
+    useSettingsStoreMock.mockReturnValue(
+      createSettingsState({ backgroundImageFileName: "wallpaper.png" }),
+    );
+    installWindowMocks({ electron: { imageExists } });
+
+    await act(async () => {
+      await renderWithI18n(<AppearanceSettings />, { language: "en" });
+    });
+
+    await waitFor(() =>
+      expect(imageExists).toHaveBeenCalledWith("wallpaper.png"),
+    );
+    expect(
+      screen.queryByText(/missing on this device/),
+    ).toBeNull();
+  });
+
+  it("does not probe the image directory without a background reference", async () => {
+    const imageExists = vi.fn();
+    useSettingsStoreMock.mockReturnValue(createSettingsState());
+    installWindowMocks({ electron: { imageExists } });
+
+    await act(async () => {
+      await renderWithI18n(<AppearanceSettings />, { language: "en" });
+    });
+
+    expect(imageExists).not.toHaveBeenCalled();
+    expect(screen.queryByText(/missing on this device/)).toBeNull();
   });
 });

@@ -701,6 +701,7 @@
     "disableBackgroundImage": "無効化",
     "backgroundImageEnabledHint": "背景画像は現在デスクトップシェルで有効です。",
     "backgroundImageDisabledHint": "背景画像は保存されていますが、現在は無効です。",
+    "backgroundImageMissingFile": "このデバイスに背景画像ファイルが見つかりません。画像を再選択すると復元できます。",
     "backgroundImageOpacity": "背景の見えやすさ",
     "backgroundImageBlur": "ぼかしの強さ",
     "customColor": "カスタム",

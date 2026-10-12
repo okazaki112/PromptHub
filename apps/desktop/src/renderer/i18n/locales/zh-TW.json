@@ -701,6 +701,7 @@
     "disableBackgroundImage": "關閉",
     "backgroundImageEnabledHint": "背景圖目前已在桌面殼層中啟用。",
     "backgroundImageDisabledHint": "背景圖已保留，但目前處於關閉狀態。",
+    "backgroundImageMissingFile": "這台裝置上找不到這張背景圖檔。請重新選擇一張圖片以恢復。",
     "backgroundImageOpacity": "背景可見度",
     "backgroundImageBlur": "模糊強度",
     "customColor": "自訂",

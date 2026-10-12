@@ -883,7 +883,16 @@ export async function importDatabase(backup: DatabaseBackup): Promise<void> {
   if (normalizedBackup.images) {
     for (const [fileName, base64] of Object.entries(normalizedBackup.images)) {
       try {
-        await window.electron?.saveImageBase64?.(fileName, base64);
+        const saved = await window.electron?.saveImageBase64?.(
+          fileName,
+          base64,
+        );
+        if (saved === false) {
+          restoreFailures.push(`image ${fileName}`);
+          console.warn(
+            `Failed to restore image ${fileName}: the main process refused the write`,
+          );
+        }
       } catch (error) {
         restoreFailures.push(`image ${fileName}`);
         console.warn(`Failed to restore image ${fileName}:`, error);
@@ -894,7 +903,16 @@ export async function importDatabase(backup: DatabaseBackup): Promise<void> {
   if (normalizedBackup.videos) {
     for (const [fileName, base64] of Object.entries(normalizedBackup.videos)) {
       try {
-        await window.electron?.saveVideoBase64?.(fileName, base64);
+        const saved = await window.electron?.saveVideoBase64?.(
+          fileName,
+          base64,
+        );
+        if (saved === false) {
+          restoreFailures.push(`video ${fileName}`);
+          console.warn(
+            `Failed to restore video ${fileName}: the main process refused the write`,
+          );
+        }
       } catch (error) {
         restoreFailures.push(`video ${fileName}`);
         console.warn(`Failed to restore video ${fileName}:`, error);

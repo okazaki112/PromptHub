@@ -703,6 +703,7 @@
     "disableBackgroundImage": "关闭",
     "backgroundImageEnabledHint": "背景图当前已在桌面壳层中启用。",
     "backgroundImageDisabledHint": "背景图已保留，但当前处于关闭状态。",
+    "backgroundImageMissingFile": "这台设备上找不到这张背景图文件。重新选择一张图片即可恢复。",
     "backgroundImageOpacity": "背景可见度",
     "backgroundImageBlur": "虚化强度",
     "customColor": "自定义",

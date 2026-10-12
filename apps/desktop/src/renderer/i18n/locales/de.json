@@ -701,6 +701,7 @@
     "disableBackgroundImage": "Deaktivieren",
     "backgroundImageEnabledHint": "Das Hintergrundbild ist derzeit für die Desktop-Hülle aktiviert.",
     "backgroundImageDisabledHint": "Das Hintergrundbild bleibt gespeichert, ist aber aktuell deaktiviert.",
+    "backgroundImageMissingFile": "Die Hintergrundbilddatei fehlt auf diesem Gerät. Wähle erneut ein Bild aus, um es wiederherzustellen.",
     "backgroundImageOpacity": "Hintergrundsichtbarkeit",
     "backgroundImageBlur": "Unschärfestärke",
     "customColor": "Benutzerdefiniert",

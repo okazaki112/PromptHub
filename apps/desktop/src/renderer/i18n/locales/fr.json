@@ -701,6 +701,7 @@
     "disableBackgroundImage": "Désactiver",
     "backgroundImageEnabledHint": "L'image d'arrière-plan est actuellement activée pour le shell bureau.",
     "backgroundImageDisabledHint": "L'image d'arrière-plan est conservée, mais actuellement désactivée.",
+    "backgroundImageMissingFile": "Le fichier d'image d'arrière-plan est absent de cet appareil. Choisissez à nouveau une image pour le rétablir.",
     "backgroundImageOpacity": "Visibilité de l'arrière-plan",
     "backgroundImageBlur": "Intensité du flou",
     "customColor": "Personnalisé",
