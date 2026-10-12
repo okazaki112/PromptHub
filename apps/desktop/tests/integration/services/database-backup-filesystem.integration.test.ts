@@ -17,6 +17,7 @@ const state = vi.hoisted(() => ({
   skillVersions: new Map<string, any[]>(),
   skillRepoPaths: new Map<string, string>(),
   nextSkillId: 1,
+  backgroundImageFileName: undefined as string | undefined,
 }));
 
 vi.mock("../../../src/renderer/services/database", () => ({
@@ -36,7 +37,13 @@ vi.mock("../../../src/renderer/services/settings-snapshot", () => ({
     aiApiKey: "integration-key",
   }),
   getSettingsStateSnapshot: () => ({
-    state: { language: "en", theme: "dark" },
+    state: {
+      language: "en",
+      theme: "dark",
+      ...(state.backgroundImageFileName
+        ? { backgroundImageFileName: state.backgroundImageFileName }
+        : {}),
+    },
     settingsUpdatedAt: "2026-04-16T00:00:00.000Z",
   }),
   restoreAiConfigSnapshot: vi.fn(),
@@ -81,6 +88,7 @@ describe("database-backup filesystem integration", () => {
     imagesDir = path.join(tempRoot, "images");
     videosDir = path.join(tempRoot, "videos");
     skillsRoot = path.join(tempRoot, "skills");
+    state.backgroundImageFileName = undefined;
 
     await Promise.all([
       fs.mkdir(imagesDir, { recursive: true }),
@@ -425,5 +433,29 @@ describe("database-backup filesystem integration", () => {
         }),
       ]),
     );
+  });
+
+  it("restores the desktop background image file onto a clean asset directory", async () => {
+    const backgroundBase64 = Buffer.from("background-bytes").toString("base64");
+    state.backgroundImageFileName = "background.png";
+    await fs.writeFile(path.join(imagesDir, "background.png"), "background-bytes");
+
+    const backup = await exportDatabase();
+
+    expect(backup.images).toEqual(
+      expect.objectContaining({ "background.png": backgroundBase64 }),
+    );
+
+    await fs.rm(imagesDir, { recursive: true, force: true });
+    await fs.mkdir(imagesDir, { recursive: true });
+
+    await restoreFromBackup(backup);
+
+    await expect(
+      fs.readFile(path.join(imagesDir, "background.png"), "utf8"),
+    ).resolves.toBe("background-bytes");
+    await expect(
+      fs.readFile(path.join(imagesDir, "integration-image.png"), "utf8"),
+    ).resolves.toBe("integration-image-bytes");
   });
 });

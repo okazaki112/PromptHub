@@ -148,9 +148,10 @@ async function processBatched<T, R>(
 async function collectImages(
   prompts: Awaited<ReturnType<typeof getAllPrompts>>,
   limits?: MediaCollectionLimits,
+  additionalFileNames: readonly string[] = [],
 ): Promise<{ [fileName: string]: string }> {
   const images: { [fileName: string]: string } = {};
-  const imageFileNames = new Set<string>();
+  const imageFileNames = new Set<string>(additionalFileNames);
   const readFailures: string[] = [];
 
   for (const prompt of prompts) {
@@ -862,6 +863,13 @@ export async function exportDatabase(options?: {
   skipVideoContent?: boolean;
   limitMedia?: boolean;
 }): Promise<DatabaseBackup> {
+  const settingsSnapshot = getSettingsStateSnapshot({
+    updatedAt: new Date().toISOString(),
+  });
+  const backgroundImageFileName = normalizeBackgroundImageFileName(
+    settingsSnapshot?.state?.backgroundImageFileName,
+  );
+
   const [prompts, folders, versions] = await Promise.all([
     getAllPrompts(),
     getAllFolders(),
@@ -892,7 +900,11 @@ export async function exportDatabase(options?: {
     promptRelations,
     outputFormatItems,
   ] = await Promise.all([
-    collectImages(prompts, imageLimits),
+    collectImages(
+      prompts,
+      imageLimits,
+      backgroundImageFileName ? [backgroundImageFileName] : [],
+    ),
     options?.skipVideoContent
       ? Promise.resolve(undefined)
       : collectVideos(prompts, videoLimits),
@@ -905,9 +917,6 @@ export async function exportDatabase(options?: {
     listOutputFormatItems(),
   ]);
 
-  const settingsSnapshot = getSettingsStateSnapshot({
-    updatedAt: new Date().toISOString(),
-  });
   const storeSources = collectStoreSourcesSnapshot();
 
   return {
@@ -1276,6 +1285,21 @@ export async function downloadCompressedBackup(): Promise<void> {
   );
 }
 
+function selectImagesByNames(
+  images: { [fileName: string]: string } | undefined,
+  names: readonly string[],
+): { [fileName: string]: string } | undefined {
+  const selected: { [fileName: string]: string } = {};
+  for (const name of names) {
+    const content = images?.[name];
+    if (content !== undefined) {
+      selected[name] = content;
+    }
+  }
+
+  return Object.keys(selected).length > 0 ? selected : undefined;
+}
+
 export async function downloadSelectiveExport(
   scope: ExportScope,
 ): Promise<void> {
@@ -1296,6 +1320,20 @@ export async function downloadSelectiveExport(
     skipVideoContent: !normalized.videos,
   });
 
+  const collectedImages = fullBackup.images ?? {};
+  const backgroundImageFileName = normalizeBackgroundImageFileName(
+    fullBackup.settings?.state?.backgroundImageFileName,
+  );
+  const referencedImageNames = Array.from(
+    new Set(fullBackup.prompts.flatMap((prompt) => prompt.images ?? [])),
+  ).filter((name) => name in collectedImages);
+  const selectedImageNames = [
+    ...(normalized.images ? referencedImageNames : []),
+    ...(normalized.backgroundImage && backgroundImageFileName
+      ? [backgroundImageFileName]
+      : []),
+  ];
+
   const payload: Partial<DatabaseBackup> = {
     version: DB_VERSION,
     exportedAt: fullBackup.exportedAt,
@@ -1308,7 +1346,7 @@ export async function downloadSelectiveExport(
     outputFormatItems: normalized.prompts
       ? fullBackup.outputFormatItems
       : undefined,
-    images: normalized.images ? fullBackup.images : undefined,
+    images: selectImagesByNames(collectedImages, selectedImageNames),
     videos: normalized.videos ? fullBackup.videos : undefined,
     aiConfig: normalized.aiConfig ? fullBackup.aiConfig : undefined,
     settings: normalized.settings ? fullBackup.settings : undefined,
@@ -1338,7 +1376,6 @@ export async function downloadSelectiveExport(
   if (typeof window !== "undefined" && window.electron?.exportZip) {
     let aiConfigJson: string | undefined;
     let settingsJson: string | undefined;
-    let backgroundImageFileName: string | undefined;
 
     if (normalized.aiConfig) {
       const snap = getAiConfigSnapshot({ includeRootApiKey: true });
@@ -1351,20 +1388,17 @@ export async function downloadSelectiveExport(
     if (normalized.settings && settingsSnapshot) {
       settingsJson = JSON.stringify(settingsSnapshot, null, 2);
     }
-    if (normalized.backgroundImage) {
-      backgroundImageFileName = normalizeBackgroundImageFileName(
-        settingsSnapshot?.state?.backgroundImageFileName,
-      );
-    }
 
     const result = await window.electron.exportZip({
       scope: {
         prompts: normalized.prompts || normalized.folders,
         versions: normalized.versions,
         images: normalized.images,
-        imageFileNames: Object.keys(fullBackup.images ?? {}),
+        imageFileNames: normalized.images ? referencedImageNames : [],
         backgroundImage: normalized.backgroundImage,
-        backgroundImageFileName,
+        backgroundImageFileName: normalized.backgroundImage
+          ? backgroundImageFileName
+          : undefined,
         videos: normalized.videos,
         skills: normalized.skills,
         rules: normalized.rules,
