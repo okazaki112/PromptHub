@@ -8,6 +8,27 @@
 - Severity: 中（换设备/重装后用户外观设置静默失效）
 - Owner surface: `apps/desktop/src/renderer/services/database-backup.ts`
 
+## Deeper Root Cause Found On Re-test（10-12 二次复测）
+
+按第一版修复重新导出后导入，报错 `Backup restore completed with 1 file errors: image 05c87b6a-...png`。真正根因比「旧备份缺本体」更严重：**大于约 3.5MB（base64 约 4.6MB）的媒体永远无法写回**。
+
+`apps/desktop/src/main/ipc/image.ipc.ts` 与 `apps/web/src/services/media-base64.ts` 的 base64 校验用了嵌套量词正则 `/^(?:[A-Za-z0-9+/]{4})*...$/u`，V8 在 4,667,088 字符的合法 payload 上 `RegExp.test` 直接抛 `RangeError: Maximum call stack size exceeded`（实测 2MB 通过、4.67MB 溢出）。该异常被 handler 的 catch 吞成 `return false`，于是：
+
+- 修复前：静默失败，背景与任何大图/视频在恢复后消失且无提示；
+- 「静默失败收口」之后：变成显式报错，用户才看到这条信息。
+
+实测数据（真实 `05c87b6a-...png`，3,500,315 字节 → base64 4,667,088 字符）：旧正则 `THREW RangeError`，线性正则 `true`。
+
+## Fix
+
+把嵌套量词正则换成线性字符集校验 `/^[A-Za-z0-9+/]*={0,2}$/u`，分组合法性仍由既有的 `payload.length % 4 !== 0` 与空值前置检查保证。逐例比对边界串（`""` / `AB` / `AB==` / `ABCD==` / `AAAA` / `AA=` / `=A` / `/A+=` / `a+b=` / `ABCD===` / `AB%C` / `=` / `A===`）：配合长度守卫后，可接受集合与旧实现逐例一致，无语义放宽。桌面与 web 两处同步修改。
+
+## Tests
+
+- `apps/desktop/tests/unit/main/media-save-base64-large.test.ts` 4 例（先红：3.5MB 图与视频写入返回 false；非法 base64 与空 payload 的拒绝保持绿色）。
+- `apps/web/src/services/media-base64.test.ts` 新增 1 例（先红 `RangeError`）。
+- 桌面全量 `107 failed | 3324 passed`，失败文件集合与基线 `v063-full2.log` 一致，仅多出 1 条 `ISS-20261012-001` 已登记的 `rules-workspace` Windows rename EPERM 偶发；web 全量 `5 failed | 342 passed`，与修复前同口径（均为环境/构建产物依赖类失败）。
+
 ## Fix Summary
 
 采用「背景本体进 payload」：`exportDatabase()` 把规范化后的当前背景文件名并入 `collectImages()` 的待收集集合，因此 `payload.images` 含背景 base64；恢复侧沿用既有 `payload.images → saveImageBase64` 循环，无需新增字段或迁移。选择性导出的「媒体 / 背景图」两个开关各自独立裁剪 payload 与 zip 名单。

@@ -71,6 +71,15 @@ exportedAt                              = 2026-10-11T19:55Z     ← 早于 43dd2
 - `appearance-settings.test.tsx` 新增 3 例：文件缺失显示提示、文件存在不显示、无引用时不发起探测。改动前 2 例失败（文案找不到、`imageExists` 从未被调用）。
 - 备份恢复 + 外观相关 11 个测试文件：103/103 通过。
 
+## 第五阶段：大媒体恢复不了的真正根因（用户二次复测报错）
+用户按第一版修复重新导出并导入后报错 `Backup restore completed with 1 file errors: image 05c87b6a-...png`。定位为独立缺陷：`image.ipc.ts:24` 与 `apps/web/src/services/media-base64.ts:3` 的 base64 校验用嵌套量词正则，`RegExp.test` 在 4,667,088 字符的合法 payload 上抛 `RangeError: Maximum call stack size exceeded`（实测 2MB 通过、4.67MB 溢出），异常被 handler catch 成 `return false` ⇒ **约 3.5MB 以上的图片/视频从来就恢复不回来**，修复前是静默、上一阶段收口后才变成显式报错。
+
+改为线性字符集校验 `/^[A-Za-z0-9+/]*={0,2}$/u`，分组合法性仍由既有 `length % 4` 与空值前置检查保证；对 13 个边界串逐例比对，可接受集合与旧实现一致。桌面与 web 同步修。
+
+测试：`tests/unit/main/media-save-base64-large.test.ts` 4 例（先红 2 例）、`apps/web/src/services/media-base64.test.ts` +1 例（先红 `RangeError`）。用例内避免对多兆 Buffer 用 `toEqual` 深比较（7.7s → 0.36s）。
+
+验证：`check-file-line-limits` / desktop eslint / desktop+web `tsc --noEmit` 全 exit 0；桌面全量 `107 failed | 3324 passed`，失败文件集合与基线一致，仅多 1 条已登记的 `rules-workspace` EPERM 偶发；web 全量 `5 failed | 342 passed`，与修复前同口径（环境/构建产物类）。
+
 ## 验证（第二阶段）
 - `tests/unit/main/data-export-ipc.test.ts` 8 例：新增文件，全绿。
 - 备份导出相关 8 个文件（含新主进程测试）：`Test Files 8 passed`、`Tests 76 passed`。

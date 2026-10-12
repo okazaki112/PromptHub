@@ -14,8 +14,8 @@
 - [x] T12 全量验证：两轮桌面全量单测（`v064-bgexport-full.log` / `full2.log`）与基线失败文件集合一致；额外 1 条负载敏感偶发用例单独复跑通过，登记 `ISS-20261012-001`；eslint / 文件行数门禁 / desktop-web-cli `tsc --noEmit` 全绿
 - [x] T13 背景恢复缺口取证：探针实测确认 `saveImageBase64` 0 次调用、仅引用回写，登记 `ISS-20261012-002`（探针用后即删）
 - [x] T14 背景本体进 payload：`collectImages()` 支持额外文件名、`exportDatabase()` 取规范化背景名、`downloadSelectiveExport()` 按媒体/背景双开关拆分 payload 与 zip 名单；4 条新用例（先 2 红后全绿）
-- [ ] T15 第三轮全量验证 + 提交 + 文档状态收敛
-- [x] T13 第二台设备复测归因：旧备份 `payload.images={}` 无本体；确认「自动设置」接线（SENSITIVE 字段、partialize、reload 后 rehydrate）本身是通的
-- [x] T14 静默失败收口：媒体写入 `false` 计入 restoreFailures（`undefined` 不误报）+ 2 例先红后绿
-- [x] T15 缺失可感知：`AppearanceSettings` 探测 `image:exists`，缺失时显示 `settings.backgroundImageMissingFile`（×7 locale）+ 3 例先红后绿
-- [ ] T16 后续（不属于本变更）：Web 端批量恢复通道、`videos/` 口径对称收紧、更换背景清理旧文件、`data-layout-v0.5.5-zh.md` §4.1/§10 决策 4 分叉收敛、`ISS-20261012-001` 负载敏感用例
+- [x] T15 第二台设备复测归因：旧备份 `payload.images={}` 无本体；确认「自动设置」接线（SENSITIVE 字段、partialize、reload 后 rehydrate）本身是通的
+- [x] T16 静默失败收口：媒体写入 `false` 计入 restoreFailures（`undefined` 不误报）+ 2 例先红后绿
+- [x] T17 缺失可感知：`AppearanceSettings` 探测 `image:exists`，缺失时显示 `settings.backgroundImageMissingFile`（×7 locale）+ 3 例先红后绿
+- [x] T18 大媒体根因：嵌套量词正则在 4.67MB payload 上抛 `RangeError` ⇒ 3.5MB 以上图片/视频从来恢复不回（桌面 + web 各一处）；改线性校验并对 13 个边界串逐例比对，可接受集合与旧实现一致；桌面 4 例 + web 1 例先红后绿
+- [ ] T19 后续（不属于本变更）：Web 端批量恢复通道、`videos/` 口径对称收紧、更换背景清理旧文件、`data-layout-v0.5.5-zh.md` §4.1/§10 决策 4 分叉收敛、`ISS-20261012-001` 负载敏感用例
