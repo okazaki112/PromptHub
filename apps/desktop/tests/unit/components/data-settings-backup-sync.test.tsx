@@ -626,4 +626,28 @@ describe("DataSettings", { timeout: 60_000 }, () => {
       ),
     ).toBeInTheDocument();
   });
+
+  it('selects version history by default in the selective export checklist', async () => {
+    await act(async () => {
+      await renderWithI18n(<DataSettings activeSubsection="backup" />, {
+        language: "en",
+      });
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(
+      screen.getByRole("button", { name: "Version history" }),
+    ).toHaveAttribute("aria-pressed", "true");
+
+    fireEvent.click(screen.getByRole("button", { name: "Export Data" }));
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(downloadSelectiveExport).toHaveBeenCalledWith(
+      expect.objectContaining({ versions: true }),
+    );
+  });
 });

@@ -15,7 +15,7 @@ const DEFAULT_EXPORT_SCOPE: ExportScope = {
   videos: true,
   aiConfig: true,
   settings: true,
-  versions: false,
+  versions: true,
   rules: true,
   skills: true,
 };
