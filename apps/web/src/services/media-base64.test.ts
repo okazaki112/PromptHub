@@ -13,6 +13,14 @@ describe('media base64 decoding', () => {
     expect(content.toString('utf8')).toBe('media');
   });
 
+  it('decodes a multi-megabyte payload without exhausting the stack', () => {
+    const content = Buffer.alloc(3_500_315, 7);
+    const payload = content.toString('base64');
+
+    expect(payload.length).toBeGreaterThan(4_000_000);
+    expect(decodeMediaBase64(payload).equals(content)).toBe(true);
+  });
+
   it('rejects oversized payloads before allocating a decoded buffer', () => {
     const oversizedPayload = Buffer.from('abc').toString('base64');
     const fromSpy = vi.spyOn(Buffer, 'from');

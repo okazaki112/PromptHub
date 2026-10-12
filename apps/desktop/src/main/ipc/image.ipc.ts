@@ -21,7 +21,11 @@ import {
 import { getHttpRequestAgent } from "../services/network-proxy";
 import { getImagesDir, getVideosDir } from "../runtime-paths";
 
-const BASE64_PATTERN = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u;
+// Linear alphabet check only. The previous grouped form
+// (`(?:[A-Za-z0-9+/]{4})*`) blew the call stack on multi-megabyte payloads, so
+// large backups could never be written back. Grouping is enforced by the
+// `payload.length % 4` guard in decodeMediaBase64.
+const BASE64_PATTERN = /^[A-Za-z0-9+/]*={0,2}$/u;
 const IMAGE_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".gif", ".webp"]);
 const VIDEO_EXTENSIONS = new Set([".mp4", ".webm", ".mov", ".avi", ".mkv"]);
 

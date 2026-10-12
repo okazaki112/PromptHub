@@ -1,6 +1,9 @@
 export const MAX_MEDIA_BYTES = 20 * 1024 * 1024;
 
-const BASE64_PATTERN = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u;
+// Linear alphabet check only. The previous grouped form
+// (`(?:[A-Za-z0-9+/]{4})*`) blew the call stack on multi-megabyte payloads.
+// Grouping is enforced by the `payload.length % 4` guard in decodeMediaBase64.
+const BASE64_PATTERN = /^[A-Za-z0-9+/]*={0,2}$/u;
 
 export interface DecodeMediaBase64Options {
   label?: string;
