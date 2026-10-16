@@ -33,6 +33,9 @@ export interface PromptCardProps {
 export interface VirtualizedPromptListProps {
   prompts: Prompt[];
   selectedPromptIdSet: Set<string>;
+  /** Single selected prompt used to keep the clicked item in view across
+   * accordion collapse/expansion (optional; multi-select still works). */
+  selectedPromptId?: string | null;
   highlightTerms: string[];
   collapsedPromptIds: Set<string>;
   onCollapsedPromptIdsChange: Dispatch<SetStateAction<Set<string>>>;

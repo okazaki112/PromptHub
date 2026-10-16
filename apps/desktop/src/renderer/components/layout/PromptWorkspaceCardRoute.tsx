@@ -37,6 +37,7 @@ function PromptWorkspaceVirtualizedList() {
     <VirtualizedPromptList
       prompts={derived.visiblePrompts}
       selectedPromptIdSet={derived.selectedPromptIdSet}
+      selectedPromptId={derived.selectedPrompt?.id ?? null}
       highlightTerms={derived.highlightTerms}
       collapsedPromptIds={state.detail.collapsedPromptIds}
       onCollapsedPromptIdsChange={state.detail.setCollapsedPromptIds}

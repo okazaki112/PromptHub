@@ -49,6 +49,7 @@ export function getPromptDescendantIds(
 export const VirtualizedPromptList = memo(function VirtualizedPromptList({
   prompts,
   selectedPromptIdSet,
+  selectedPromptId,
   highlightTerms,
   collapsedPromptIds,
   onCollapsedPromptIdsChange,
@@ -64,6 +65,7 @@ export const VirtualizedPromptList = memo(function VirtualizedPromptList({
   const model = useVirtualizedPromptListModel(
     prompts,
     effectiveCollapsedPromptIds,
+    selectedPromptId,
   );
 
   const togglePromptCollapse = useCollapsedPromptIds({

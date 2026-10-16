@@ -11,6 +11,7 @@ const PROMPT_CARD_ESTIMATED_HEIGHT = 76;
 export function useVirtualizedPromptListModel(
   prompts: Prompt[],
   effectiveCollapsedPromptIds: Set<string>,
+  selectedPromptId?: string | null,
 ) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const treeItems = useMemo(
@@ -36,9 +37,20 @@ export function useVirtualizedPromptListModel(
     getItemKey: (index) => treeItems[index]?.prompt.id ?? `__missing-${index}`,
   });
 
+  const targetIndex = selectedPromptId
+    ? treeItems.findIndex((item) => item.prompt.id === selectedPromptId)
+    : -1;
+
   useEffect(() => {
-    scrollRef.current?.scrollTo({ top: 0 });
-  }, [promptOrderKey]);
+    // The accordion selection hook changes collapsedPromptIds, which changes the
+    // flatten order. Keep the selected prompt visible instead of snapping the
+    // virtualized list to its top (the old behavior users reported as
+    // "clicking a prompt with children jumps to the top").
+    if (targetIndex < 0) {
+      return;
+    }
+    rowVirtualizer.scrollToIndex(targetIndex, { align: "start" });
+  }, [promptOrderKey, rowVirtualizer, targetIndex]);
 
   return { scrollRef, treeItems, hierarchyMeta, rowVirtualizer };
 }
