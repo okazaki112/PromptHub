@@ -78,7 +78,11 @@ export function PromptHeatmapHeader({
                 className="mx-0.5 min-w-16 cursor-pointer appearance-none rounded bg-transparent py-1 pl-2 pr-5 text-sm font-semibold tabular-nums text-foreground outline-none motion-safe:focus:ring-2 motion-safe:focus:ring-[#0969da] dark:motion-safe:focus:ring-[#58a6ff]"
               >
                 {visibleYears.map((candidate) => (
-                  <option key={candidate} value={candidate}>
+                  <option
+                    key={candidate}
+                    value={candidate}
+                    className="bg-white text-black dark:bg-zinc-900 dark:text-zinc-100"
+                  >
                     {candidate}
                   </option>
                 ))}
