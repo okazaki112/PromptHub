@@ -300,13 +300,22 @@ describe("PromoptGraphView value tiers", () => {
     });
   });
 
-  it("keeps candidate links off while no node is hovered or selected", async () => {
+  it("does not add candidate links (or reheat graphData) from hover alone", async () => {
     const prompts = [
       makeGraphPrompt("cand-a", { tags: ["shared"] }),
       makeGraphPrompt("cand-b", { tags: ["shared"] }),
     ];
     await renderGraph(prompts);
-    expect(graphProps.current.graphData.links.filter((l: any) => l.isSuggestion)).toHaveLength(0);
+    // Moving the mouse over a node must NOT change graphData.links; that used to
+    // make the whole simulation jitter and nodes impossible to click.
+    fireEvent.mouseEnter(screen.getByTestId("graph-node-cand-a"));
+    expect(
+      graphProps.current.graphData.links.filter(
+        (l: { isSuggestion?: boolean }) => l.isSuggestion,
+      ),
+    ).toHaveLength(0);
+    // Hovering alone keeps graphData the same as before (no candidates appear).
+    expect(graphProps.current.graphData.links).toHaveLength(0);
   });
 
   it("shows the usage number in the hover card and hides it after leaving", async () => {
@@ -353,6 +362,21 @@ describe("PromoptGraphView value tiers", () => {
     expect(graphProps.current.graphData.nodes).toHaveLength(2);
     fireEvent.click(screen.getByRole("button", { name: "#x" }));
     expect(graphProps.current.graphData.nodes).toHaveLength(1);
+  });
+
+  it("pin a dragged node on drag end and remove the pin on reset", async () => {
+    await renderGraph([makeGraphPrompt("drag-a")]);
+    const node = graphProps.current.graphData.nodes[0] as PromptGraphNode;
+    node.x = 13;
+    node.y = 17;
+    graphProps.current.onNodeDragEnd(node, { x: 13, y: 17 });
+    // Pin the node at the coordinates where it was dropped.
+    expect(node.fx).toBe(13);
+    expect(node.fy).toBe(17);
+    // Reset un-pins all nodes so the graph can reflow cleanly.
+    fireEvent.click(screen.getByRole("button", { name: "Reset graph view" }));
+    expect(node.fx).toBeNull();
+    expect(node.fy).toBeNull();
   });
 
   it("colours and arrows directional edges but not undirected relations", async () => {

@@ -207,12 +207,17 @@ export function PromptGraphView({
     return ids;
   }, [highlightedId, neighborIndex]);
 
+  // Candidate edges are driven ONLY by committed focus (selected/focus node),
+  // never by mouse hover. Hovering changed candidateLinks -> graphData -> the
+  // force effect reheated the whole layout on every mouse move, which is what
+  // made nodes jitter and hard to click. Hover keeps its highlight + card
+  // (those don't touch graphData), but the simulation stays frozen.
   const suggestionFocusIds = useMemo(() => {
     const ids = new Set<string>();
-    if (hoveredId) ids.add(hoveredId);
     if (selectedPromptId) ids.add(selectedPromptId);
+    if (focusId) ids.add(focusId);
     return [...ids];
-  }, [hoveredId, selectedPromptId]);
+  }, [selectedPromptId, focusId]);
   const visibleIdSet = useMemo(
     () => new Set(baseGraph.nodes.map((n) => n.id)),
     [baseGraph.nodes],
@@ -263,8 +268,10 @@ export function PromptGraphView({
     return map;
   }, [baseGraph.nodes, folderRootIndex, colorMode]);
 
-  // Keep the v0.5 tuned force profile (Obsidian-style compact equilibrium),
-  // but re-apply per render set (candidate links) without exploding the sim.
+  // Structural force setup ONLY. Depends on baseGraph (topology / focus /
+  // filters), NOT on renderedGraphData (which carries hover candidates + selection).
+  // Re-running this on every mouse move reheated the sim; now the layout is set
+  // up once per real topology change and then allowed to cool and freeze.
   useEffect(() => {
     const graph = graphRef.current;
     if (!graph) {
@@ -277,33 +284,40 @@ export function PromptGraphView({
     graph.d3Force(
       "collide",
       forceCollide<PromptGraphNode>()
-        .radius((node) => Math.sqrt(getNodeVal(node)) * 3.2 + 14)
-        .strength(0.85)
+        .radius((node) => Math.sqrt(getNodeVal(node)) * 3.2 + 18)
+        .strength(0.9)
         .iterations(2),
     );
     const link = graph.d3Force("link");
     link
       ?.distance((edge: PromptGraphLink) => (edge.isHierarchy ? 36 : 58))
       .strength((edge: PromptGraphLink) => {
+        // Candidate edges are visual-only overlays: zero link force so they
+        // never tug the settled layout.
+        if ("isSuggestion" in edge && edge.isSuggestion) {
+          return 0;
+        }
         const source = edge.source as PromptGraphNode;
         const target = edge.target as PromptGraphNode;
-        const degree = 1 / Math.min(source.degree + 1, target.degree + 1);
-        return "isSuggestion" in edge && edge.isSuggestion ? degree * 0.5 : degree;
+        return 1 / Math.min(source.degree + 1, target.degree + 1);
       });
     graph.d3Force("center", null);
     graph.d3Force("x", forceX<PromptGraphNode>(0).strength(0.06));
     graph.d3Force("y", forceY<PromptGraphNode>(0).strength(0.06));
     graph.d3ReheatSimulation();
-  }, [renderedGraphData]);
+  }, [baseGraph]);
 
+  // Settle fast and freeze: each tier warms up to a layout, then cools to a
+  // halt (finite cooldownTicks + a high-velocityDecay + d3AlphaMin below).
+  // "off" pre-solves with warmupTicks and never animates afterwards.
   const motionConfig = useMemo(() => {
     if (motionPreference === "off") {
-      return { warmupTicks: 200, cooldownTicks: 0, alphaDecay: 0.1 };
+      return { warmupTicks: 300, cooldownTicks: 0, alphaDecay: 0.1, velocityDecay: 0.6 };
     }
     if (motionPreference === "reduced") {
-      return { warmupTicks: 40, cooldownTicks: 60, alphaDecay: 0.06 };
+      return { warmupTicks: 60, cooldownTicks: 50, alphaDecay: 0.08, velocityDecay: 0.6 };
     }
-    return { warmupTicks: 0, cooldownTicks: 200, alphaDecay: 0.0228 };
+    return { warmupTicks: 120, cooldownTicks: 180, alphaDecay: 0.05, velocityDecay: 0.5 };
   }, [motionPreference]);
 
   const handleZoom = useCallback((transform: { k: number }) => {
@@ -316,11 +330,28 @@ export function PromptGraphView({
   }, []);
   const fitView = useCallback(() => graphRef.current?.zoomToFit(420, 60), []);
   const resetView = useCallback(() => {
+    // Un-pin every visible node the user dragged (we own these object
+    // references — the library mutates x/y/fx/fy in place) so the layout can
+    // re-flow cleanly instead of leaving frozen points. Runs even without the
+    // live graph handle so the clear is testable and robust.
+    for (const node of baseGraph.nodes) {
+      node.fx = null;
+      node.fy = null;
+    }
     const graph = graphRef.current;
-    if (!graph) return;
+    if (!graph) {
+      return;
+    }
     graph.zoom(1, 220);
     graph.centerAt(0, 0, 220);
     graph.d3ReheatSimulation();
+  }, [baseGraph]);
+
+  // Pin a node where it was dropped so it stops drifting and is easy to click
+  // precisely. Structural changes (focus/filter) reheat but do not un-pin.
+  const handleNodeDragEnd = useCallback((node: NodeObject<PromptGraphNode>) => {
+    node.fx = node.x;
+    node.fy = node.y;
   }, []);
 
   const nodeColor = useCallback(
@@ -574,10 +605,12 @@ export function PromptGraphView({
           warmupTicks={motionConfig.warmupTicks}
           cooldownTicks={motionConfig.cooldownTicks}
           d3AlphaDecay={motionConfig.alphaDecay}
-          d3VelocityDecay={0.32}
+          d3AlphaMin={0.05}
+          d3VelocityDecay={motionConfig.velocityDecay}
           enableNodeDrag
           onNodeClick={handleNodeClick}
           onNodeHover={handleNodeHover}
+          onNodeDragEnd={handleNodeDragEnd}
           onZoom={handleZoom}
         />
         <GraphLegend mode={colorMode} t={t} expanded={legendOpen} />

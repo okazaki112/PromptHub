@@ -35,5 +35,17 @@ PromptGraphView.tsx ~500、graph-overlays.tsx ~300、prompt-graph-tools.ts ~180�
 - folder 过滤目前只对根文件夹，子文件夹归属到根；prompt 数量极大时可做候选边惰性计算（当前已用 6/节点上限）。
 - 关系语义 label 真源仍散在 PromptRelationshipPanel，本次在图谱侧复用同一 `prompt.relationships.*` i18n key 但未把面板的 DIRECTIONAL_RELATION_LABELS 抽到 semantics.ts（留作后续 issue，避免牵动面板回归）。
 
+## 稳定性增量（v0.6.5 内追加修复）
+症状：节点持续抖动难点击，鼠标每动一下候选边出现/消失导致 graphData 引用变、力 effect 每次 reheat。
+修复：
+- `suggestionFocusIds` 移除 `hoveredId`，候选边只由 committed `selectedPromptId`/`focusId` 驱动。
+- 力配置 effect 依赖 `[renderedGraphData]` → `[baseGraph]`（结构），hover/selected 切换不再 `d3ReheatSimulation`。
+- candidate edge 在 d3Force('link') strength 返回 0（视觉线，不拉扯布局）。
+- standard `warmupTicks:120/cooldownTicks:180/alphaDecay:0.05/velocityDecay:0.5`; reduced 60/50/0.08; off 全预热。
+- 组件加 `d3AlphaMin={0.05}` 自动停。
+- collide radius +18/strength0.9（节点间隙更大）。
+- `onNodeDragEnd` 落点钉住 + `resetView` 清钉（不要求 ref，便于 jsdom 断言）。
+验证：graph `prompt-graph-view` 16 tests（含 hover-only 不增候选 + drag pin + reset unpin）。
+
 ## 稳定性边界声明
 无 DB schema / migration / IPC / preload / shared public type 的行为变更；旧数据零迁移成本；无破坏性变更。列表/看板/画廊/卡片视图不受影响。

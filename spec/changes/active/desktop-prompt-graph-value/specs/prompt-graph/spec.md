@@ -12,11 +12,12 @@
 - TEST：见 prompt-graph-semantics.test.ts（palette 确定性、kind 视觉映射、半径单调）+ prompt-graph-view.test.tsx（字段透传、卡片出现）。
 
 ### FR-G2 自动浮现候选关联
-仅对 hover/选中节点显示其候选关联点边（淡色、distinct 样式），候选来源为既有推荐引擎；未 hover/选中的节点不得渲染候选边。
+仅对**已选中/焦点节点**显示候选关联边（淡色、distinct 样式），候选来源为既有推荐引擎;鼠标 hover 浏览**不得**改变 graphData（否则每帧重热模拟导致整图抖动、节点难点击，v0.6.5 修）。
 - AC-G2a：候选边由 `buildRelationSuggestions`(same_tag/same_folder/similar_title) 产生，排除已相连/父子/自身，取 Top-N。
-- AC-G2b：候选边 dedup 真实边与彼此；两端须为当前可见节点。
+- AC-G2b：候选边 dedup 真实边与彼此；两端须为当前可见节点;候选边 force-strength=0，仅视觉不拉扯布局。
 - AC-G2c：点击候选边调用 `createRelation({kind:'related_to'})`，落库后候选边由真实边替代。
-- TEST：prompt-graph-tools.test.ts（dedup/边界/Top-N）+ 视图 mock（候选边存在、点击回调）。
+- AC-G2d：布局能自动冷却冻结（有限 cooldownTicks + d3AlphaMin + 提高 velocityDecay);拖拽落点钉住(`fx/fy`)，"Reset graph view" 解钉重排。
+- TEST：prompt-graph-tools.test.ts（dedup/边界/Top-N）+ 视图 mock（hover-only 无候选边、选中出候选、点击提交、drag+reset 钉/解钉）。
 
 ### FR-G3 局部探索与筛选
 提供 focus 局部邻域子图、tag/folder/关系类型过滤、孤岛 prompt 健康度提示。
