@@ -28,13 +28,20 @@ export type SortBy =
 export type SortOrder = "desc" | "asc";
 // View mode
 // 视图模式
-export type ViewMode = "card" | "list" | "gallery" | "kanban" | "graph";
+export type ViewMode =
+  | "card"
+  | "list"
+  | "gallery"
+  | "kanban"
+  | "graph"
+  | "heatmap";
 const VIEW_MODES: readonly ViewMode[] = [
   "card",
   "list",
   "gallery",
   "kanban",
   "graph",
+  "heatmap",
 ];
 export type GalleryImageSize = "small" | "medium" | "large";
 export type KanbanColumns = 2 | 3 | 4;

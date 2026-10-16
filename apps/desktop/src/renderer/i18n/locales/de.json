@@ -30,7 +30,8 @@
     "libraryImported": "Aus der Bibliothek",
     "platformDeployed": "Auf Plattform bereitgestellt",
     "distribution": "Verteilung",
-    "skillStore": "Skill-Store"
+    "skillStore": "Skill-Store",
+    "heatmap": "Nutzungsheatmap"
   },
   "header": {
     "search": "Prompt suchen...",
@@ -467,7 +468,62 @@
     "batchTagTitle": "{{count}} Prompts taggen",
     "batchTagAdded": "Tag zu {{count}} Prompts hinzugefügt",
     "batchTagRemoved": "Tag von {{count}} Prompts entfernt",
-    "batchTagPartial": "Aktualisierung bei {{failed}} von {{total}} Prompts fehlgeschlagen"
+    "batchTagPartial": "Aktualisierung bei {{failed}} von {{total}} Prompts fehlgeschlagen",
+    "heatmap": {
+      "title": "Nutzungsheatmap",
+      "description": "Kohortenansicht: Fläche zeigt erstellte Prompts, Balken zeigt aktuelle kumulierte Nutzung.",
+      "grid": "Erstellungskalender",
+      "empty": {
+        "noData": "Keine Prompts zur Visualisierung. Erstelle Prompts für die Heatmap."
+      },
+      "aria": {
+        "unavailable": "nicht verfügbar",
+        "noCreation": "keine neuen Prompts",
+        "count": "{{created}} erstellt · {{heat}} aktuelle Wärme"
+      },
+      "year": {
+        "navigation": "Jahresnavigation",
+        "previous": "Vorheriges Jahr",
+        "next": "Nächstes Jahr",
+        "select": "Jahr auswählen"
+      },
+      "legend": "Legende",
+      "legendCreated": "Erstellt",
+      "legendHeat": "Aktuelle Wärme",
+      "summary": {
+        "new": "Neu",
+        "heat": "Wärme",
+        "activeDays": "Aktive Tage",
+        "cohort": "Bisherige Kohortenwärme, nicht die tatsächliche Tagesnutzung."
+      },
+      "metric": {
+        "group": "Metrik",
+        "combined": "Kombiniert",
+        "created": "Neue Prompts",
+        "usage": "Aktuelle Nutzung"
+      },
+      "tooltip": {
+        "created": "Neu:",
+        "createdValue": "{{count}}",
+        "heat": "Wärme:",
+        "heatValue": "{{count}}",
+        "average": "Ø pro Prompt:",
+        "averageValue": "{{count}}",
+        "top": "Am häufigsten:"
+      },
+      "selection": {
+        "title": "Ausgewählte Tage",
+        "empty": "Tag anklicken, um die Kohorte zu prüfen.",
+        "summary": "{{dayCount}} Tage · {{created}} neu · {{usage}} Wärme",
+        "clear": "Auswahl löschen",
+        "chips": "Auswahl",
+        "promptsEmpty": "Keine sichtbaren Prompts für diese Auswahl.",
+        "rowHint": "Einfacher Klick auswählt, Doppelklick öffnet Details.",
+        "showing": "{{visible}} von {{total}}",
+        "usage": "{{count}} Verwendungen"
+      },
+      "legendMore": "Mehr"
+    }
   },
   "folder": {
     "new": "Neuer Ordner",

@@ -31,7 +31,8 @@
     "libraryImported": "来自 Skill 库",
     "platformDeployed": "已部署",
     "distribution": "分发",
-    "skillStore": "Skill 商店"
+    "skillStore": "Skill 商店",
+    "heatmap": "使用热度"
   },
   "header": {
     "search": "搜索 Prompt...",
@@ -468,7 +469,62 @@
     "batchTagTitle": "为 {{count}} 个提示词打标签",
     "batchTagAdded": "标签已添加到 {{count}} 个提示词",
     "batchTagRemoved": "标签已从 {{count}} 个提示词移除",
-    "batchTagPartial": "{{failed}}/{{total}} 个提示词更新失败"
+    "batchTagPartial": "{{failed}}/{{total}} 个提示词更新失败",
+    "heatmap": {
+      "title": "使用热度",
+      "description": "以创建日期查看同批：颜色表示当天新建数量，琥珀条表示这批 Prompt 当前累计使用热度。",
+      "grid": "按创建日期查看 Prompt",
+      "empty": {
+        "noData": "暂无可展示的 Prompt。新建 Prompt 后即可查看热度。"
+      },
+      "aria": {
+        "unavailable": "不可用",
+        "noCreation": "当天无新建",
+        "count": "新建 {{created}} · 当前热度 {{heat}}"
+      },
+      "year": {
+        "navigation": "年份导航",
+        "previous": "上一年",
+        "next": "下一年",
+        "select": "选择年份"
+      },
+      "legend": "图例",
+      "legendCreated": "新建",
+      "legendHeat": "当前热度",
+      "summary": {
+        "new": "新建",
+        "heat": "当前热度",
+        "activeDays": "活跃天数",
+        "cohort": "按创建批次累计，不代表当天真实执行次数。"
+      },
+      "metric": {
+        "group": "热力指标",
+        "combined": "综合",
+        "created": "新建数量",
+        "usage": "当前使用热度"
+      },
+      "tooltip": {
+        "created": "新建：",
+        "createdValue": "{{count}}",
+        "heat": "当前热度：",
+        "heatValue": "{{count}}",
+        "average": "平均每个：",
+        "averageValue": "{{count}}",
+        "top": "最常用："
+      },
+      "selection": {
+        "title": "所选日期",
+        "empty": "选择一个日期，查看当天创建的 Prompt。",
+        "summary": "所选 {{dayCount}} 天 · 新建 {{created}} · 热度 {{usage}}",
+        "clear": "清除",
+        "chips": "已选日期",
+        "promptsEmpty": "所选日期没有可见 Prompt。",
+        "rowHint": "单击选择 · 双击查看详情",
+        "showing": "显示 {{total}} 条中的 {{visible}} 条。",
+        "usage": "{{count}} 次"
+      },
+      "legendMore": "更多"
+    }
   },
   "rules": {
     "title": "Rules",

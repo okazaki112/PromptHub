@@ -1,6 +1,7 @@
 import {
   ChevronDownIcon,
   ChevronUpIcon,
+  FlameIcon,
   GitBranchIcon,
   HashIcon,
   ImageIcon,
@@ -18,6 +19,10 @@ import type { SidebarController } from "./sidebar-view-types";
 
 type PromptFilter = "all" | "text" | "image";
 
+function isPromptInsightMode(viewMode: SidebarController["promptViewMode"]) {
+  return viewMode === "graph" || viewMode === "heatmap";
+}
+
 function isPromptFilterActive(
   controller: SidebarController,
   filter: PromptFilter,
@@ -26,7 +31,7 @@ function isPromptFilterActive(
     controller.selectedFolderId === null &&
     controller.currentPage === "home" &&
     controller.promptTypeFilter === filter &&
-    controller.promptViewMode !== "graph"
+    !isPromptInsightMode(controller.promptViewMode)
   );
 }
 
@@ -172,7 +177,7 @@ function SidebarPromptStaticNavigation({
         active={
           controller.selectedFolderId === "favorites" &&
           controller.currentPage === "home" &&
-          controller.promptViewMode !== "graph"
+          !isPromptInsightMode(controller.promptViewMode)
         }
         collapsed={controller.isCollapsed}
         onClick={() => controller.openPromptFolder("favorites")}
@@ -187,6 +192,17 @@ function SidebarPromptStaticNavigation({
         }
         collapsed={controller.isCollapsed}
         onClick={controller.openRelationshipGraph}
+      />
+      <SidebarNavigationItem
+        icon={<FlameIcon className="w-5 h-5" />}
+        label={controller.t("nav.heatmap", "Usage heatmap")}
+        count={controller.promptStats.totalCount}
+        active={
+          controller.promptViewMode === "heatmap" &&
+          controller.currentPage === "home"
+        }
+        collapsed={controller.isCollapsed}
+        onClick={controller.openHeatmap}
       />
     </>
   );

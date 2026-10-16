@@ -31,7 +31,8 @@
     "libraryImported": "From Library",
     "platformDeployed": "Deployed",
     "distribution": "Distribution",
-    "skillStore": "Skill Store"
+    "skillStore": "Skill Store",
+    "heatmap": "Usage heatmap"
   },
   "header": {
     "search": "Search Prompt...",
@@ -468,7 +469,62 @@
     "batchTagTitle": "Tag {{count}} prompts",
     "batchTagAdded": "Tag added to {{count}} prompts",
     "batchTagRemoved": "Tag removed from {{count}} prompts",
-    "batchTagPartial": "{{failed}} of {{total}} prompts failed to update"
+    "batchTagPartial": "{{failed}} of {{total}} prompts failed to update",
+    "heatmap": {
+      "title": "Usage heatmap",
+      "description": "Cohort view: color shows prompts created; the amber bar is that cohort's current usage heat.",
+      "grid": "Prompt creation calendar",
+      "empty": {
+        "noData": "No prompts to visualize. Create prompts to see cohort heat here."
+      },
+      "aria": {
+        "unavailable": "unavailable",
+        "noCreation": "no new prompts",
+        "count": "{{created}} created · {{heat}} current heat"
+      },
+      "year": {
+        "navigation": "Year navigation",
+        "previous": "Previous year",
+        "next": "Next year",
+        "select": "Select year"
+      },
+      "legend": "Legend",
+      "legendCreated": "Created",
+      "legendHeat": "Current heat",
+      "summary": {
+        "new": "New",
+        "heat": "Current heat",
+        "activeDays": "Active days",
+        "cohort": "Cohort cumulative heat, not actual daily activity"
+      },
+      "metric": {
+        "group": "Heatmap metric",
+        "combined": "Combined",
+        "created": "New prompts",
+        "usage": "Current usage heat"
+      },
+      "tooltip": {
+        "created": "New:",
+        "createdValue": "{{count}}",
+        "heat": "Current heat:",
+        "heatValue": "{{count}}",
+        "average": "Average per prompt:",
+        "averageValue": "{{count}}",
+        "top": "Most used:"
+      },
+      "selection": {
+        "title": "Selected days",
+        "empty": "Click a date to inspect its cohort's prompts.",
+        "summary": "{{dayCount}} days · {{created}} new · {{usage}} heat",
+        "clear": "Clear",
+        "chips": "Selected dates",
+        "promptsEmpty": "No visible prompts are available from these dates.",
+        "rowHint": "Single click selects; double click opens details.",
+        "showing": "Showing {{visible}} of {{total}} entries.",
+        "usage": "{{count}} uses"
+      },
+      "legendMore": "More"
+    }
   },
   "rules": {
     "title": "Rules",

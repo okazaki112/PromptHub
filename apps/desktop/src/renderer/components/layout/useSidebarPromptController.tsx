@@ -173,7 +173,18 @@ function useSidebarPromptNavigation(
     prompt.setPromptViewMode("graph");
     if (currentPage !== "home") onNavigate("home");
   }, [currentPage, folders, onNavigate, prompt]);
-  return { openPromptTypeFilter, openPromptFolder, openRelationshipGraph };
+  const openHeatmap = useCallback(() => {
+    prompt.setPromptTypeFilter("all");
+    folders.selectFolder(null);
+    prompt.setPromptViewMode("heatmap");
+    if (currentPage !== "home") onNavigate("home");
+  }, [currentPage, folders, onNavigate, prompt]);
+  return {
+    openPromptTypeFilter,
+    openPromptFolder,
+    openRelationshipGraph,
+    openHeatmap,
+  };
 }
 
 function useSidebarFolderReorder(

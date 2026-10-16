@@ -30,7 +30,8 @@
     "libraryImported": "來自 Skill 庫",
     "platformDeployed": "已部署",
     "distribution": "分發",
-    "skillStore": "Skill 商店"
+    "skillStore": "Skill 商店",
+    "heatmap": "使用熱度"
   },
   "header": {
     "search": "搜尋 Prompt...",
@@ -467,7 +468,62 @@
     "batchTagTitle": "為 {{count}} 個提示詞標籤",
     "batchTagAdded": "標籤已新增至 {{count}} 個提示詞",
     "batchTagRemoved": "標籤已從 {{count}} 個提示詞移除",
-    "batchTagPartial": "{{failed}}/{{total}} 個提示詞更新失敗"
+    "batchTagPartial": "{{failed}}/{{total}} 個提示詞更新失敗",
+    "heatmap": {
+      "title": "使用熱度",
+      "description": "以建立日期查看同批：顏色表示當日新建數量，琥珀條表示這批目前累計使用熱度。",
+      "grid": "依建立日期檢視 Prompt",
+      "empty": {
+        "noData": "尚無可展示的 Prompt。建立 Prompt 後即可查看熱度。"
+      },
+      "aria": {
+        "unavailable": "不可用",
+        "noCreation": "當日無新建",
+        "count": "新建 {{created}} · 目前熱度 {{heat}}"
+      },
+      "year": {
+        "navigation": "年份導覽",
+        "previous": "上一年",
+        "next": "下一年",
+        "select": "選擇年份"
+      },
+      "legend": "圖例",
+      "legendCreated": "新建",
+      "legendHeat": "目前熱度",
+      "summary": {
+        "new": "新建",
+        "heat": "目前熱度",
+        "activeDays": "活躍日數",
+        "cohort": "依建立批次累計，非每日實際執行次數。"
+      },
+      "metric": {
+        "group": "熱度指標",
+        "combined": "綜合",
+        "created": "新建數量",
+        "usage": "目前使用熱度"
+      },
+      "tooltip": {
+        "created": "新建：",
+        "createdValue": "{{count}}",
+        "heat": "目前熱度：",
+        "heatValue": "{{count}}",
+        "average": "平均每個：",
+        "averageValue": "{{count}}",
+        "top": "最常用："
+      },
+      "selection": {
+        "title": "已選日期",
+        "empty": "選擇日期以檢視當日建立的 Prompt。",
+        "summary": "已選 {{dayCount}} 天 · 新建 {{created}} · 熱度 {{usage}}",
+        "clear": "清除",
+        "chips": "已選日期",
+        "promptsEmpty": "已選日期沒有可見 Prompt。",
+        "rowHint": "單擊選擇 · 雙擊查看詳細",
+        "showing": "顯示 {{visible}} / {{total}}。",
+        "usage": "{{count}} 次"
+      },
+      "legendMore": "更多"
+    }
   },
   "folder": {
     "new": "新增資料夾",

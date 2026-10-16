@@ -30,7 +30,8 @@
     "libraryImported": "ライブラリから導入",
     "platformDeployed": "プラットフォーム配布済み",
     "distribution": "配布",
-    "skillStore": "スキルストア"
+    "skillStore": "スキルストア",
+    "heatmap": "ヒートマップ"
   },
   "header": {
     "search": "Prompt を検索...",
@@ -467,7 +468,62 @@
     "batchTagTitle": "{{count}} 件のプロンプトにタグ付け",
     "batchTagAdded": "{{count}} 件のプロンプトにタグを追加しました",
     "batchTagRemoved": "{{count}} 件のプロンプトからタグを削除しました",
-    "batchTagPartial": "{{total}} 件中 {{failed}} 件の更新に失敗しました"
+    "batchTagPartial": "{{total}} 件中 {{failed}} 件の更新に失敗しました",
+    "heatmap": {
+      "title": "ヒートマップ",
+      "description": "作成日ベースの同梱表示：色は作成数、バーはそのバッチの現在の累計使用量です。",
+      "grid": "作成日でプロンプトを確認",
+      "empty": {
+        "noData": "表示できるプロンプトがありません。作成後にヒートマップで確認できます。"
+      },
+      "aria": {
+        "unavailable": "利用不可",
+        "noCreation": "作成はありません",
+        "count": "作成 {{created}} · 現在のヒート {{heat}}"
+      },
+      "year": {
+        "navigation": "年ナビゲーション",
+        "previous": "前年",
+        "next": "翌年",
+        "select": "年を選択"
+      },
+      "legend": "凡例",
+      "legendCreated": "作成",
+      "legendHeat": "現在のヒート",
+      "summary": {
+        "new": "新規",
+        "heat": "現在のヒート",
+        "activeDays": "アクティブ日数",
+        "cohort": "バッチ累計であり、その日の実行数ではありません。"
+      },
+      "metric": {
+        "group": "指標",
+        "combined": "複合",
+        "created": "作成数",
+        "usage": "現在の使用ヒート"
+      },
+      "tooltip": {
+        "created": "作成：",
+        "createdValue": "{{count}}",
+        "heat": "現在のヒート：",
+        "heatValue": "{{count}}",
+        "average": "1件平均：",
+        "averageValue": "{{count}}",
+        "top": "よく使う："
+      },
+      "selection": {
+        "title": "選択した日付",
+        "empty": "日付をクリックすると、その日作成分を表示します。",
+        "summary": "{{dayCount}}日 · 新規 {{created}} · ヒート {{usage}}",
+        "clear": "解除",
+        "chips": "選択中",
+        "promptsEmpty": "選択日に利用可能なプロンプトがありません。",
+        "rowHint": "クリックで選択 · ダブルクリックで詳細",
+        "showing": "{{total}}件中{{visible}}件",
+        "usage": "{{count}}回"
+      },
+      "legendMore": "多い"
+    }
   },
   "folder": {
     "new": "新規フォルダ",

@@ -30,7 +30,8 @@
     "libraryImported": "Depuis la bibliothèque",
     "platformDeployed": "Déployées sur la plateforme",
     "distribution": "Distribution",
-    "skillStore": "Boutique de skills"
+    "skillStore": "Boutique de skills",
+    "heatmap": "Carte thermique"
   },
   "header": {
     "search": "Rechercher un Prompt...",
@@ -467,7 +468,62 @@
     "batchTagTitle": "Taguer {{count}} prompts",
     "batchTagAdded": "Tag ajouté à {{count}} prompts",
     "batchTagRemoved": "Tag retiré de {{count}} prompts",
-    "batchTagPartial": "Échec de mise à jour pour {{failed}} prompts sur {{total}}"
+    "batchTagPartial": "Échec de mise à jour pour {{failed}} prompts sur {{total}}",
+    "heatmap": {
+      "title": "Carte thermique",
+      "description": "Vue par cohorte : couleur = prompts créés ; barre = utilisation actuelle cumulée.",
+      "grid": "Calendrier des créations",
+      "empty": {
+        "noData": "Aucun prompt à visualiser. Créez des prompts pour voir la carte thermique."
+      },
+      "aria": {
+        "unavailable": "indisponible",
+        "noCreation": "aucun nouveau prompt",
+        "count": "{{created}} créés · {{heat}} chaleur"
+      },
+      "year": {
+        "navigation": "Navigation annuelle",
+        "previous": "Année précédente",
+        "next": "Année suivante",
+        "select": "Choisir l'année"
+      },
+      "legend": "Légende",
+      "legendCreated": "Créés",
+      "legendHeat": "Chaleur actuelle",
+      "summary": {
+        "new": "Nouveaux",
+        "heat": "Chaleur",
+        "activeDays": "Jours actifs",
+        "cohort": "Chaleur cumulative par cohorte, non la fréquence quotidienne réelle."
+      },
+      "metric": {
+        "group": "Indicateur",
+        "combined": "Combiné",
+        "created": "Nouveaux prompts",
+        "usage": "Utilisation actuelle"
+      },
+      "tooltip": {
+        "created": "Nouveaux :",
+        "createdValue": "{{count}}",
+        "heat": "Chaleur actuelle :",
+        "heatValue": "{{count}}",
+        "average": "Moyenne par prompt :",
+        "averageValue": "{{count}}",
+        "top": "Plus utilisés :"
+      },
+      "selection": {
+        "title": "Dates sélectionnées",
+        "empty": "Cliquez une date pour voir les prompts concernés.",
+        "summary": "{{dayCount}} jour(s) · {{created}} créés · {{usage}} chaleur",
+        "clear": "Effacer",
+        "chips": "Sélection",
+        "promptsEmpty": "Aucun prompt visible pour cette sélection.",
+        "rowHint": "Un clic pour sélectionner, double-clic pour les détails.",
+        "showing": "{{visible}} sur {{total}} entrées.",
+        "usage": "{{count}} utilisations"
+      },
+      "legendMore": "Plus"
+    }
   },
   "folder": {
     "new": "Nouveau dossier",

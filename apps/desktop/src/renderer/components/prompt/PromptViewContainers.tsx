@@ -16,6 +16,11 @@ const PromptKanbanView = lazy(() =>
 const PromptGraphView = lazy(() =>
   import("../prompt/PromptGraphView").then((m) => ({ default: m.PromptGraphView })),
 );
+const PromptHeatmapView = lazy(() =>
+  import("../prompt/PromptHeatmapView").then((m) => ({
+    default: m.PromptHeatmapView,
+  })),
+);
 
 const loadingFallback = (
   <div className="flex-1 flex items-center justify-center">
@@ -89,6 +94,20 @@ export function PromptViewContainers({
               relations={relations}
               selectedPromptId={selectedId}
               onSelectPrompt={onGraphSelectPrompt}
+            />
+          </Suspense>
+        )}
+      </div>
+
+      {/* Usage heatmap full view */}
+      <div className={getViewClass("heatmap")}>
+        {viewMode === "heatmap" && (
+          <Suspense fallback={loadingFallback}>
+            <PromptHeatmapView
+              prompts={sortedPrompts}
+              selectedPromptId={selectedId}
+              onSelectPrompt={cardActions.onSelect}
+              onViewDetail={cardActions.onViewDetail}
             />
           </Suspense>
         )}

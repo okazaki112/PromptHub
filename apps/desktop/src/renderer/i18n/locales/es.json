@@ -30,7 +30,8 @@
     "libraryImported": "Desde la biblioteca",
     "platformDeployed": "Distribuidas en la plataforma",
     "distribution": "Distribución",
-    "skillStore": "Tienda de habilidades"
+    "skillStore": "Tienda de habilidades",
+    "heatmap": "Mapa de calor"
   },
   "header": {
     "search": "Buscar Prompt...",
@@ -467,7 +468,62 @@
     "batchTagTitle": "Etiquetar {{count}} prompts",
     "batchTagAdded": "Etiqueta añadida a {{count}} prompts",
     "batchTagRemoved": "Etiqueta eliminada de {{count}} prompts",
-    "batchTagPartial": "Falló la actualización de {{failed}} de {{total}} prompts"
+    "batchTagPartial": "Falló la actualización de {{failed}} de {{total}} prompts",
+    "heatmap": {
+      "title": "Mapa de calor",
+      "description": "Vista por cohorte: color = prompts creados; barra = uso actual acumulado.",
+      "grid": "Calendario de creación",
+      "empty": {
+        "noData": "No hay prompts para visualizar. Crea prompts para ver el mapa."
+      },
+      "aria": {
+        "unavailable": "no disponible",
+        "noCreation": "sin nuevos prompts",
+        "count": "{{created}} creados · {{heat}} calor"
+      },
+      "year": {
+        "navigation": "Navegación de años",
+        "previous": "Año anterior",
+        "next": "Año siguiente",
+        "select": "Seleccionar año"
+      },
+      "legend": "Leyenda",
+      "legendCreated": "Creados",
+      "legendHeat": "Calor actual",
+      "summary": {
+        "new": "Nuevos",
+        "heat": "Calor",
+        "activeDays": "Días activos",
+        "cohort": "Calor acumulado por cohorte, no actividad diaria real"
+      },
+      "metric": {
+        "group": "Métrica",
+        "combined": "Combinado",
+        "created": "Prompts nuevos",
+        "usage": "Uso actual"
+      },
+      "tooltip": {
+        "created": "Nuevos:",
+        "createdValue": "{{count}}",
+        "heat": "Calor actual:",
+        "heatValue": "{{count}}",
+        "average": "Promedio por prompt:",
+        "averageValue": "{{count}}",
+        "top": "Más usados:"
+      },
+      "selection": {
+        "title": "Días seleccionados",
+        "empty": "Haz clic en una fecha para revisar su cohorte.",
+        "summary": "{{dayCount}} días · {{created}} nuevos · {{usage}} calor",
+        "clear": "Borrar",
+        "chips": "Selección",
+        "promptsEmpty": "No hay prompts visibles en la selección.",
+        "rowHint": "Un clic selecciona, doble clic abre detalles.",
+        "showing": "{{visible}} de {{total}}",
+        "usage": "{{count}} usos"
+      },
+      "legendMore": "Más"
+    }
   },
   "folder": {
     "new": "Nueva carpeta",
