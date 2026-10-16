@@ -242,7 +242,35 @@
       "relationCount": "{{count}} Beziehungen",
       "empty": "Noch keine Prompts für den Graphen",
       "openPrompt": "Graph-Prompt {{title}} öffnen",
-      "groupedUnder": "Gruppiert unter"
+      "groupedUnder": "Gruppiert unter",
+      "legend": {
+        "title": "Legende",
+        "hierarchy": "Hierarchie",
+        "related": "Verwandt",
+        "variant": "Variante",
+        "depends": "Hängt ab von",
+        "next": "Nächster Schritt",
+        "suggestion": "Vorgeschlagene Verknüpfung (klicken zum Speichern)",
+        "folder": "Farbe = Wurzelordner",
+        "size": "Größe = Nutzung × Verknüpfungen",
+        "toggle": "Legende ein/aus"
+      },
+      "card": {
+        "usage": "{{count}} Mal verwendet",
+        "suggested": "{{count}} Vorschläge"
+      },
+      "iso": {
+        "badge": "{{count}} ohne Verknüpfung"
+      },
+      "focus": {
+        "exit": "Fokus verlassen"
+      },
+      "filter": {
+        "clear": "Löschen"
+      },
+      "typeText": "Text",
+      "typeImage": "Bild",
+      "typeVideo": "Video"
     },
     "tagsOptional": "Tags (optional)",
     "selectExistingTags": "Vorhandene Tags auswählen:",

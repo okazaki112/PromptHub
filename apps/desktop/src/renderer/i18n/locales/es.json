@@ -242,7 +242,35 @@
       "relationCount": "{{count}} relaciones",
       "empty": "Aún no hay Prompts para mapear",
       "openPrompt": "Abrir Prompt del grafo {{title}}",
-      "groupedUnder": "Agrupado bajo"
+      "groupedUnder": "Agrupado bajo",
+      "legend": {
+        "title": "Leyenda",
+        "hierarchy": "Grupo jerárquico",
+        "related": "Relacionado",
+        "variant": "Variante",
+        "depends": "Depende de",
+        "next": "Siguiente paso",
+        "suggestion": "Enlace sugerido (clic para guardar)",
+        "folder": "Color = carpeta raíz",
+        "size": "Tamaño = usos × enlaces",
+        "toggle": "Mostrar/ocultar leyenda"
+      },
+      "card": {
+        "usage": "{{count}} usos",
+        "suggested": "{{count}} enlaces sugeridos"
+      },
+      "iso": {
+        "badge": "{{count}} sin enlace"
+      },
+      "focus": {
+        "exit": "Salir del foco"
+      },
+      "filter": {
+        "clear": "Borrar"
+      },
+      "typeText": "Texto",
+      "typeImage": "Imagen",
+      "typeVideo": "Vídeo"
     },
     "tagsOptional": "Etiquetas (opcional)",
     "selectExistingTags": "Seleccionar etiquetas existentes:",

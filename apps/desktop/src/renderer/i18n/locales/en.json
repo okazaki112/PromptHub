@@ -243,7 +243,35 @@
       "relationCount": "{{count}} relationships",
       "empty": "No prompts to map yet",
       "openPrompt": "Open graph prompt {{title}}",
-      "groupedUnder": "Grouped under"
+      "groupedUnder": "Grouped under",
+      "legend": {
+        "title": "Legend",
+        "hierarchy": "Tree group",
+        "related": "Related",
+        "variant": "Variant",
+        "depends": "Depends on",
+        "next": "Next step",
+        "suggestion": "Suggested link (click to save)",
+        "folder": "Color = root folder",
+        "size": "Size = usage × connections",
+        "toggle": "Toggle legend"
+      },
+      "card": {
+        "usage": "{{count}} uses",
+        "suggested": "{{count}} suggested links"
+      },
+      "iso": {
+        "badge": "{{count}} unlinked"
+      },
+      "focus": {
+        "exit": "Exit focus"
+      },
+      "filter": {
+        "clear": "Clear"
+      },
+      "typeText": "Text",
+      "typeImage": "Image",
+      "typeVideo": "Video"
     },
     "tagsOptional": "Tags (Optional)",
     "selectExistingTags": "Select existing tags:",

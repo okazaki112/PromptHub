@@ -242,7 +242,35 @@
       "relationCount": "{{count}} 件の関係",
       "empty": "マップできる Prompt はまだありません",
       "openPrompt": "グラフの Prompt {{title}} を開く",
-      "groupedUnder": "配下"
+      "groupedUnder": "配下",
+      "legend": {
+        "title": "凡例",
+        "hierarchy": "階層",
+        "related": "関連",
+        "variant": "変種",
+        "depends": "依存",
+        "next": "次のステップ",
+        "suggestion": "候補リンク（クリックで保存）",
+        "folder": "色 = ルートフォルダ",
+        "size": "サイズ = 使用回数 × リンク数",
+        "toggle": "凡例の表示/非表示"
+      },
+      "card": {
+        "usage": "{{count}} 回使用",
+        "suggested": "候補リンク {{count}} 件"
+      },
+      "iso": {
+        "badge": "未リンク {{count}} 件"
+      },
+      "focus": {
+        "exit": "フォーカスを解除"
+      },
+      "filter": {
+        "clear": "クリア"
+      },
+      "typeText": "テキスト",
+      "typeImage": "画像",
+      "typeVideo": "動画"
     },
     "tagsOptional": "タグ（任意）",
     "selectExistingTags": "既存のタグを選択：",

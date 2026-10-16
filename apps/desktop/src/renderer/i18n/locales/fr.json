@@ -242,7 +242,35 @@
       "relationCount": "{{count}} relations",
       "empty": "Aucun Prompt à cartographier pour le moment",
       "openPrompt": "Ouvrir le Prompt du graphe {{title}}",
-      "groupedUnder": "Regroupé sous"
+      "groupedUnder": "Regroupé sous",
+      "legend": {
+        "title": "Légende",
+        "hierarchy": "Groupe hiérarchique",
+        "related": "Lié",
+        "variant": "Variante",
+        "depends": "Dépend de",
+        "next": "Étape suivante",
+        "suggestion": "Lien suggéré (cliquer pour enregistrer)",
+        "folder": "Couleur = dossier racine",
+        "size": "Taille = utilisations × liens",
+        "toggle": "Afficher/masquer la légende"
+      },
+      "card": {
+        "usage": "{{count}} utilisations",
+        "suggested": "{{count}} liens suggérés"
+      },
+      "iso": {
+        "badge": "{{count}} sans lien"
+      },
+      "focus": {
+        "exit": "Quitter le focus"
+      },
+      "filter": {
+        "clear": "Effacer"
+      },
+      "typeText": "Texte",
+      "typeImage": "Image",
+      "typeVideo": "Vidéo"
     },
     "tagsOptional": "Tags (optionnel)",
     "selectExistingTags": "Sélectionner des tags existants :",

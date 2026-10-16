@@ -1,4 +1,5 @@
 import type { Prompt, PromptRelation } from "@prompthub/shared/types";
+import type { SuggestionReason } from "./prompt-relation-suggestions";
 
 export type GraphEdgeKind = PromptRelation["kind"] | "grouped_under";
 
@@ -12,6 +13,14 @@ export interface PromptGraphNode {
   degree: number;
   hasHierarchy: boolean;
   hasSemanticRelation: boolean;
+  // v0.6.5 graph value tiers: extra dimensions that already exist on Prompt but
+  // were previously dropped before the renderer. folderId/tags drive group color
+  // + tag filtering/hover card, usageCount feeds the size overlay, isFavorite
+  // marks favourites. All view-local; never persisted here.
+  folderId: string | null;
+  tags: string[];
+  usageCount: number;
+  isFavorite: boolean;
   x?: number;
   y?: number;
   vx?: number;
@@ -30,6 +39,15 @@ export interface PromptGraphLink {
   isHierarchy: boolean;
 }
 
+// View-local candidate edge surfaced only for the hovered/selected node. It is
+// derived at render time and becomes a real PromptRelation once the user
+// commits it via createRelation; it is never part of the persisted graph.
+export interface PromptGraphSuggestionLink extends PromptGraphLink {
+  isSuggestion: true;
+  reason: SuggestionReason;
+  sharedTag?: string;
+}
+
 export interface PromptGraphData {
   nodes: PromptGraphNode[];
   links: PromptGraphLink[];
@@ -44,6 +62,11 @@ interface NodeMetrics {
 const NODE_BASE_VAL = 1.2;
 const NODE_DEGREE_VAL_STEP = 0.7;
 const NODE_MAX_DEGREE = 16;
+// v0.6.5: usage heat adds a bounded size bump on top of degree so frequently-run
+// prompts read as "hubs" without overwhelming the degree signal. usage 0 keeps
+// the legacy value identical.
+const NODE_USAGE_VAL_STEP = 0.06;
+const NODE_MAX_USAGE_VAL_BONUS = 6;
 const DENSE_GRAPH_THRESHOLD = 32;
 // On dense graphs labels stay hidden until you zoom in, so the default view is
 // clean dots. Connected nodes reveal their label earlier than isolated ones.
@@ -163,6 +186,10 @@ export function buildPromptGraphData(
       degree: metric.degree,
       hasHierarchy: metric.hasHierarchy,
       hasSemanticRelation: metric.hasSemanticRelation,
+      folderId: prompt.folderId ?? null,
+      tags: prompt.tags ?? [],
+      usageCount: prompt.usageCount ?? 0,
+      isFavorite: prompt.isFavorite ?? false,
     };
   });
 
@@ -172,10 +199,13 @@ export function buildPromptGraphData(
 // nodeVal feeds the library's area-based sizing (radius ≈ sqrt(val) * relSize),
 // so a hub with many links renders noticeably larger, like Obsidian.
 export function getNodeVal(node: PromptGraphNode): number {
-  return (
-    NODE_BASE_VAL +
-    Math.min(node.degree, NODE_MAX_DEGREE) * NODE_DEGREE_VAL_STEP
+  const degreeVal =
+    NODE_BASE_VAL + Math.min(node.degree, NODE_MAX_DEGREE) * NODE_DEGREE_VAL_STEP;
+  const usageBonus = Math.min(
+    (node.usageCount ?? 0) * NODE_USAGE_VAL_STEP,
+    NODE_MAX_USAGE_VAL_BONUS,
   );
+  return degreeVal + usageBonus;
 }
 
 export function buildNeighborIndex(links: PromptGraphLink[]): Map<string, Set<string>> {

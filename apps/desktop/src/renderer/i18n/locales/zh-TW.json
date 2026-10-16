@@ -242,7 +242,35 @@
       "relationCount": "{{count}} 條關係",
       "empty": "暫無可繪製的 Prompt",
       "openPrompt": "開啟圖譜 Prompt {{title}}",
-      "groupedUnder": "歸入"
+      "groupedUnder": "歸入",
+      "legend": {
+        "title": "圖例",
+        "hierarchy": "樹狀層級",
+        "related": "相關",
+        "variant": "變體",
+        "depends": "相依",
+        "next": "下一步",
+        "suggestion": "候選關聯（點擊儲存）",
+        "folder": "底色 = 根資料夾",
+        "size": "大小 = 使用次數 × 關聯數",
+        "toggle": "顯示/隱藏圖例"
+      },
+      "card": {
+        "usage": "使用 {{count}} 次",
+        "suggested": "{{count}} 個候選關聯"
+      },
+      "iso": {
+        "badge": "{{count}} 個未關聯"
+      },
+      "focus": {
+        "exit": "退出聚焦"
+      },
+      "filter": {
+        "clear": "清除"
+      },
+      "typeText": "文字",
+      "typeImage": "圖片",
+      "typeVideo": "影片"
     },
     "tagsOptional": "標籤（選填）",
     "selectExistingTags": "選擇已有標籤：",
