@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import type { Prompt } from "@prompthub/shared/types";
 import type { TFunction } from "i18next";
 import { useSettingsStore } from "../../stores/settings.store";
+import { usePromptStore } from "../../stores/prompt.store";
 import { PromptHeatmapHeader } from "./PromptHeatmapHeader";
 import { PromptHeatmapCell } from "./PromptHeatmapCell";
 import { PromptHeatmapTooltip } from "./PromptHeatmapTooltip";
@@ -41,6 +42,7 @@ interface PromptHeatmapViewProps {
 
 interface HeatmapVisuals {
   created: PromptHeatmapCreatedLevel;
+  activity: PromptHeatmapCreatedLevel;
   bar: PromptHeatmapUsageLevel;
   heat: PromptHeatmapCreatedLevel;
 }
@@ -64,7 +66,17 @@ export function PromptHeatmapView({
 
   const todayDateKey = useMemo(() => localDateKeyFromDate(new Date()), []);
   const currentYear = parseDateKey(todayDateKey)?.getFullYear() ?? new Date().getFullYear();
-  const days = useMemo(() => buildPromptHeatmapDays(prompts), [prompts]);
+  const versionActivity = usePromptStore((state) => state.versionActivity);
+  const fetchVersionActivity = usePromptStore((state) => state.fetchVersionActivity);
+  useEffect(() => {
+    // v2+ snapshots carry their own created_at. Refresh every heatmap open so real
+    // daily edit events are not omitted until a later app reload.
+    void fetchVersionActivity(true);
+  }, [fetchVersionActivity]);
+  const days = useMemo(
+    () => buildPromptHeatmapDays(prompts, versionActivity),
+    [prompts, versionActivity],
+  );
   const dataYears = useMemo(
     () => (days.size === 0 ? [] : getAvailableHeatmapYears(days.keys())),
     [days],
@@ -109,12 +121,18 @@ export function PromptHeatmapView({
     for (const [dateKey, day] of days) {
       result.set(dateKey, {
         created: getCreatedHeatLevel(day.createdCount, yearSummary.maxCreatedCount),
-        bar: getUsageBarLevel(day.currentUsageHeat, yearSummary.maxUsageHeat),
-        heat: getUsageHeatLevel(day.currentUsageHeat, yearSummary.maxUsageHeat),
+        activity: getCreatedHeatLevel(day.activityCount, yearSummary.maxActivityCount),
+        bar: getUsageBarLevel(day.heatStrength, yearSummary.maxHeatStrength),
+        heat: getUsageHeatLevel(day.heatStrength, yearSummary.maxHeatStrength),
       });
     }
     return result;
-  }, [days, yearSummary.maxCreatedCount, yearSummary.maxUsageHeat]);
+  }, [
+    days,
+    yearSummary.maxCreatedCount,
+    yearSummary.maxActivityCount,
+    yearSummary.maxHeatStrength,
+  ]);
 
   const selectedKeys = useMemo(
     () => [...selectedDateKeys].sort(),
@@ -275,7 +293,7 @@ export function PromptHeatmapView({
             />
             <SummaryBadge
               label={t("prompt.heatmap.summary.heat", "Usage heat")}
-              value={yearSummary.totalUsageHeat}
+              value={yearSummary.totalUsageHeat + yearSummary.totalActivity}
             />
             <SummaryBadge
               label={t("prompt.heatmap.summary.activeDays", "Active days")}
@@ -346,11 +364,13 @@ export function PromptHeatmapView({
                       <PromptHeatmapCell
                         ariaLabel={cellAria(cell)}
                         cell={cell}
-                        createdLevel={
-                          metric === "usage"
+                      createdLevel={
+                        metric === "created"
+                          ? (visual?.created ?? 0)
+                          : metric === "usage"
                             ? (visual?.heat ?? 0)
-                            : (visual?.created ?? 0)
-                        }
+                            : (visual?.activity ?? 0)
+                      }
                         isAnimated={animationEnabled}
                         isSelected={selectedDateKeys.has(cell.dateKey)}
                         isFocused={focusedDateKey === cell.dateKey}

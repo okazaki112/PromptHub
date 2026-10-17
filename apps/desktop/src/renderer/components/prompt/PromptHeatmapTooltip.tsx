@@ -25,9 +25,7 @@ export function PromptHeatmapTooltip({
   }
 
   const averageUsage =
-    day.createdCount > 0
-      ? Math.round(day.currentUsageHeat / day.createdCount)
-      : 0;
+    day.activityCount > 0 ? Math.round(day.heatStrength / day.activityCount) : 0;
 
   return (
     <aside
@@ -55,7 +53,7 @@ export function PromptHeatmapTooltip({
           {t("prompt.heatmap.tooltip.heat", "Current usage heat:")}
         </span>{" "}
         {t("prompt.heatmap.tooltip.heatValue", {
-          count: day.currentUsageHeat,
+          count: day.heatStrength,
           defaultValue: "{{count}}",
         })}
       </p>

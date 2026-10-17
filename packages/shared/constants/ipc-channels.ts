@@ -49,6 +49,7 @@ export const IPC_CHANNELS = {
 
   // Version
   VERSION_GET_ALL: "version:getAll",
+  VERSION_GET_ACTIVITY: "version:getActivity",
   VERSION_CREATE: "version:create",
   VERSION_ROLLBACK: "version:rollback",
   VERSION_DIFF: "version:diff",

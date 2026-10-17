@@ -14,6 +14,7 @@ import type {
   PromptRelation,
   PromptRelationQuery,
   PromptVersion,
+  PromptVersionActivity,
   UpdateOutputFormatItemDTO,
   UpdatePromptRelationDTO,
 } from "@prompthub/shared/types";
@@ -684,6 +685,28 @@ async function legacyGetPromptVersions(
     };
     request.onerror = () => reject(request.error);
   });
+}
+
+export async function getAllPromptVersionActivities(): Promise<PromptVersionActivity[]> {
+  if (window.api?.version?.getAllActivity) {
+    return (await window.api.version.getAllActivity()) ?? [];
+  }
+
+  const database = await getDatabase();
+  const versions = await new Promise<PromptVersion[]>((resolve, reject) => {
+    const transaction = database.transaction(STORES.VERSIONS, "readonly");
+    const request = transaction.objectStore(STORES.VERSIONS).getAll();
+    request.onsuccess = () => resolve(request.result as PromptVersion[]);
+    request.onerror = () => reject(request.error);
+  });
+  return versions
+    .filter((version) => version.version > 1)
+    .map((version) => ({
+      promptId: version.promptId,
+      version: version.version,
+      createdAt: version.createdAt,
+    }))
+    .sort((left, right) => left.createdAt.localeCompare(right.createdAt));
 }
 
 export async function createPromptVersion(

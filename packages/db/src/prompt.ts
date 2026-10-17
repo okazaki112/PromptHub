@@ -6,6 +6,7 @@ import type {
   UpdatePromptDTO,
   SearchQuery,
   PromptVersion,
+  PromptVersionActivity,
   PromptType,
   ResourceVisibility,
 } from "@prompthub/shared/types";
@@ -495,6 +496,31 @@ export class PromptDB {
     );
     const rows = stmt.all(promptId) as PromptVersionRow[];
     return rows.map((row) => this.rowToVersion(row));
+  }
+
+  /**
+   * Lightweight activity projection for the prompt heatmap. Only v2+ snapshots
+   * are revision events; v1 aligns with Prompt.createdAt and is already counted
+   * as a creation.
+   */
+  getAllVersionActivities(): PromptVersionActivity[] {
+    const rows = this.db
+      .prepare(
+        `SELECT prompt_id, version, created_at
+         FROM prompt_versions
+         WHERE version > 1
+         ORDER BY created_at ASC`,
+      )
+      .all() as Array<{
+      prompt_id: string;
+      version: number;
+      created_at: number;
+    }>;
+    return rows.map((row) => ({
+      promptId: row.prompt_id,
+      version: row.version,
+      createdAt: new Date(row.created_at).toISOString(),
+    }));
   }
 
   deleteVersion(versionId: string): boolean {

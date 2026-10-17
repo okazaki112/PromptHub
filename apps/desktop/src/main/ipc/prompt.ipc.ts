@@ -276,6 +276,12 @@ export function registerPromptIPC(db: PromptDB, folderDb: FolderDB, rawDb: Datab
     return db.getVersions(promptId);
   });
 
+  // Date projection used by heatmap only (v2+ snapshots)
+  // 热力图读取的版本活动日期投影（只含 v2+ 快照）
+  ipcMain.handle(IPC_CHANNELS.VERSION_GET_ACTIVITY, async () => {
+    return db.getAllVersionActivities();
+  });
+
   // Create version
   // 创建版本
   ipcMain.handle(IPC_CHANNELS.VERSION_CREATE, async (_, promptId: string, note?: string) => {

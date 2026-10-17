@@ -7,6 +7,7 @@ import type {
   CreateOutputFormatItemDTO,
   OutputFormatItem,
   PromptRelation,
+  PromptVersionActivity,
   UpdatePromptDTO,
   UpdatePromptRelationDTO,
 } from "@prompthub/shared/types";
@@ -53,6 +54,9 @@ function isViewMode(value: unknown): value is ViewMode {
 interface PromptState {
   prompts: Prompt[];
   relations: PromptRelation[];
+  /** Date-only v2+ version snapshots for heatmap event aggregation (cache). */
+  versionActivity: PromptVersionActivity[];
+  versionActivityLoaded: boolean;
   outputFormatItems: OutputFormatItem[];
   selectedId: string | null;
   selectedIds: string[];
@@ -79,6 +83,7 @@ interface PromptState {
   createPrompt: (data: CreatePromptDTO) => Promise<Prompt>;
   updatePrompt: (id: string, data: UpdatePromptDTO) => Promise<void>;
   fetchRelations: () => Promise<void>;
+  fetchVersionActivity: (force?: boolean) => Promise<void>;
   createRelation: (data: CreatePromptRelationDTO) => Promise<PromptRelation>;
   updateRelation: (id: string, data: UpdatePromptRelationDTO) => Promise<void>;
   deleteRelation: (id: string) => Promise<void>;
@@ -114,6 +119,8 @@ export const usePromptStore = create<PromptState>()(
     (set, get) => ({
       prompts: [],
       relations: [],
+      versionActivity: [],
+      versionActivityLoaded: false,
       outputFormatItems: [],
       selectedId: null,
       selectedIds: [],
@@ -143,6 +150,19 @@ export const usePromptStore = create<PromptState>()(
           console.error("Failed to fetch prompts:", error);
         } finally {
           set({ isLoading: false });
+        }
+      },
+
+      fetchVersionActivity: async (force = false) => {
+        if (!force && get().versionActivityLoaded) {
+          return;
+        }
+        try {
+          const versionActivity = await db.getAllPromptVersionActivities();
+          set({ versionActivity, versionActivityLoaded: true });
+        } catch {
+          // IndexedDB fallback may not exist in test or web contexts; do not retry on mount.
+          set({ versionActivityLoaded: true });
         }
       },
 

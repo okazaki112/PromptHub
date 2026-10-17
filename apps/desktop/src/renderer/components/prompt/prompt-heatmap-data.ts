@@ -1,4 +1,4 @@
-import type { Prompt } from "@prompthub/shared/types";
+import type { Prompt, PromptVersionActivity } from "@prompthub/shared/types";
 import type {
   PromptHeatmapCell,
   PromptHeatmapDay,
@@ -69,29 +69,65 @@ function buildTopPrompts(prompts: readonly Prompt[]): PromptHeatmapTopPrompt[] {
 
 export function buildPromptHeatmapDays(
   prompts: readonly Prompt[],
+  versionActivity: readonly PromptVersionActivity[] = [],
 ): Map<string, PromptHeatmapDay> {
-  const days = new Map<
-    string,
-    { prompts: Prompt[]; createdCount: number; currentUsageHeat: number }
-  >();
+  type MutableDay = {
+    prompts: Prompt[];
+    createdCount: number;
+    currentUsageHeat: number;
+    versionActivityCount: number;
+  };
+  const days = new Map<string, MutableDay>();
+  const visiblePromptIds = new Set(prompts.map((prompt) => prompt.id));
+  const ensureDay = (dateKey: string): MutableDay => {
+    const existing = days.get(dateKey);
+    if (existing) {
+      return existing;
+    }
+    const created: MutableDay = {
+      prompts: [],
+      createdCount: 0,
+      currentUsageHeat: 0,
+      versionActivityCount: 0,
+    };
+    days.set(dateKey, created);
+    return created;
+  };
+
   for (const prompt of prompts) {
     const dateKey = localDateKeyFromIso(prompt.createdAt, prompt.updatedAt);
     if (!dateKey) {
       continue;
     }
-    const entry = days.get(dateKey) ?? { prompts: [], createdCount: 0, currentUsageHeat: 0 };
+    const entry = ensureDay(dateKey);
     entry.prompts.push(prompt);
     entry.createdCount += 1;
     entry.currentUsageHeat += prompt.usageCount ?? 0;
-    days.set(dateKey, entry);
   }
+
+  for (const activity of versionActivity) {
+    if (activity.version <= 1 || !visiblePromptIds.has(activity.promptId)) {
+      continue;
+    }
+    const activityDateKey = localDateKeyFromIso(activity.createdAt);
+    if (!activityDateKey) {
+      continue;
+    }
+    ensureDay(activityDateKey).versionActivityCount += 1;
+  }
+
   const result = new Map<string, PromptHeatmapDay>();
   for (const [dateKey, entry] of days) {
-    const orderedPrompts = entry.prompts.slice().sort(comparePromptByUsageThenTitle);
+    const orderedPrompts = entry.prompts
+      .slice()
+      .sort(comparePromptByUsageThenTitle);
     result.set(dateKey, {
       dateKey,
       createdCount: entry.createdCount,
       currentUsageHeat: entry.currentUsageHeat,
+      versionActivityCount: entry.versionActivityCount,
+      activityCount: entry.createdCount + entry.versionActivityCount,
+      heatStrength: entry.currentUsageHeat + entry.versionActivityCount,
       topPrompts: buildTopPrompts(orderedPrompts),
       prompts: orderedPrompts,
     });
@@ -105,9 +141,12 @@ export function summarizePromptHeatmapYear(
 ): PromptHeatmapYearSummary {
   let totalCreated = 0;
   let totalUsageHeat = 0;
+  let totalActivity = 0;
   let activeDayCount = 0;
   let maxCreatedCount = 0;
   let maxUsageHeat = 0;
+  let maxActivityCount = 0;
+  let maxHeatStrength = 0;
   const prefix = `${year}-`;
   for (const day of days.values()) {
     if (!day.dateKey.startsWith(prefix)) {
@@ -115,17 +154,23 @@ export function summarizePromptHeatmapYear(
     }
     totalCreated += day.createdCount;
     totalUsageHeat += day.currentUsageHeat;
-    activeDayCount += day.createdCount > 0 ? 1 : 0;
+    totalActivity += day.activityCount;
+    activeDayCount += day.activityCount > 0 ? 1 : 0;
     maxCreatedCount = Math.max(maxCreatedCount, day.createdCount);
     maxUsageHeat = Math.max(maxUsageHeat, day.currentUsageHeat);
+    maxActivityCount = Math.max(maxActivityCount, day.activityCount);
+    maxHeatStrength = Math.max(maxHeatStrength, day.heatStrength);
   }
   return {
     year,
     totalCreated,
     totalUsageHeat,
+    totalActivity,
     activeDayCount,
     maxCreatedCount,
     maxUsageHeat,
+    maxActivityCount,
+    maxHeatStrength,
   };
 }
 

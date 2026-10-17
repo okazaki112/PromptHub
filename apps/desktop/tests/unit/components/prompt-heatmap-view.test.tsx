@@ -13,8 +13,7 @@ function localKey(date: Date): string {
 }
 
 function heatmapPrompt(id: string, title: string, created: Date, usageCount: number): Prompt {
-  const createdKey = localKey(created);
-  const invalid = new Date(created.getTime() + 12 * 60 * 60 * 1000).toISOString();
+  const iso = created.toISOString();
   return {
     id,
     title,
@@ -26,8 +25,8 @@ function heatmapPrompt(id: string, title: string, created: Date, usageCount: num
     version: 1,
     currentVersion: 1,
     usageCount,
-    createdAt: invalid,
-    updatedAt: invalid,
+    createdAt: iso,
+    updatedAt: iso,
   } as unknown as Prompt;
 }
 
@@ -71,9 +70,7 @@ describe("PromptHeatmapView", () => {
     });
 
     fireEvent.mouseEnter(cell);
-    const tooltip = await waitFor(() =>
-      screen.getByTestId("prompt-heatmap-tooltip"),
-    );
+    const tooltip = await screen.findByTestId("prompt-heatmap-tooltip");
     expect(within(tooltip).getByText(/Yesterday Heat Prompt/)).toBeInTheDocument();
 
     fireEvent.click(cell);

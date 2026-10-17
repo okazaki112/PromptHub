@@ -57,6 +57,43 @@ describe("prompt-heatmap-data", () => {
     expect(day?.topPrompts.map((prompt) => prompt.id)).toEqual(["p2", "p1"]);
   });
 
+  it("counts v2+ version snapshots on their actual event date", () => {
+    const prompt = heatmapPrompt("old", "Old", "2024-01-01T12:00:00.000");
+    const days = buildPromptHeatmapDays([prompt], [
+      { promptId: "old", version: 1, createdAt: "2024-01-01T12:00:00.000" },
+      { promptId: "old", version: 2, createdAt: "2026-08-01T08:00:00.000" },
+      { promptId: "old", version: 3, createdAt: "2026-08-02T08:00:00.000" },
+    ]);
+    const edited = days.get("2026-08-01");
+    const created = days.get("2024-01-01");
+    expect(edited?.createdCount).toBe(0);
+    expect(edited?.versionActivityCount).toBe(1);
+    expect(edited?.activityCount).toBe(1);
+    expect(edited?.heatStrength).toBe(1);
+    expect(created?.activityCount).toBe(1);
+    expect(created?.versionActivityCount).toBe(0);
+  });
+
+  it("keeps version activity scoped to the currently visible prompt set", () => {
+    const visible = heatmapPrompt("visible", "Visible", "2026-08-01T12:00:00.000");
+    const visibleActivity = {
+      promptId: "visible",
+      version: 2,
+      createdAt: "2026-08-01T18:00:00.000",
+    };
+    const hiddenActivity = {
+      promptId: "hidden",
+      version: 9,
+      createdAt: "2026-08-01T18:00:00.000",
+    };
+
+    expect(
+      buildPromptHeatmapDays([visible], [visibleActivity, hiddenActivity]).get(
+        "2026-08-01",
+      )?.versionActivityCount,
+    ).toBe(1);
+  });
+
   it("falls back to updatedAt and skips invalid dates", () => {
     const days = buildPromptHeatmapDays([
       heatmapPrompt("fallback", "F", "invalid", 1, "2026-05-19T12:00:00.000"),

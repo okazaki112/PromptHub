@@ -23,12 +23,19 @@
 - components: prompt-heatmap types/data/scale/selection, cell/header/tooltip/selection panel/main view.
 - i18n all 7 locales (`nav.heat map`, `prompt.heatmap...`)
 
+## Version-day enhancement
+`currentVersion + createdAt cohort` bump was wrong: it stacks every revision on the original prompt creation date. Use `prompt_versions.created_at` for v2+ snapshots as an actual event day.
+- shared DTO/channel `version:getActivity`, preload `getAllActivity`, IPC allowlist and SQL `getAllVersionActivities()` (v>1, minimal prompt/date/version).
+- renderer service and prompt-store cache loaded on heatmap mount; filter visible ids, skip v1 (creation is already counted).
+- `versionActivityCount`, `activityCount`, `heatStrength`, GitHub visual and tooltip use activity heat.
+
+## List selection scroll fix
+Previous selected-target effect used `align:"start"`, so each click moved that row to top. Hook now checks TanStack `range.startIndex/endIndex`: visible target does nothing, out-of-viewport uses `align:"auto"` nearest-edge.
+
 ## Verification
-- prompt-heatmap suite: 19 tests passed
-- all unit/components: 180 files / 1300 tests passed
-- typecheck and desktop build passed.
-- eslint passed.
-- Runtime visual confirmation remains on user's Windows package.
+- prompt heatmap 21 tests + useVirtualized 4; desktop unit/components 180 files / 1303 tests all passed.
+- typecheck and production build 0; apps ESLint 0. Packages/shared/db have no standalone ESLint v9 config, so lint applies desktop.
+- runtime visual confirmation remains user-side on packaged/dev app.
 
 ## Compatibility
 - Pure renderer/view-local. `usage_count` semantics unchanged. No migration or IPC contract change.

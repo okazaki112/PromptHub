@@ -72,6 +72,15 @@ export interface PromptVersion {
   createdAt: string; // ISO 8601 format / ISO 8601 格式
 }
 
+// Lightweight read-only projection used for prompt heatmap activity dates.
+// Versions v2+ represent real editing/version events; v1 is the prompt creation
+// itself and is already counted from Prompt.createdAt.
+export interface PromptVersionActivity {
+  promptId: string;
+  version: number;
+  createdAt: string;
+}
+
 export interface PromptRelation {
   id: string;
   sourcePromptId: string;
