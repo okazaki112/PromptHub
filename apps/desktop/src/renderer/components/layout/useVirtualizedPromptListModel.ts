@@ -42,14 +42,21 @@ export function useVirtualizedPromptListModel(
     : -1;
 
   useEffect(() => {
-    // The accordion selection hook changes collapsedPromptIds, which changes the
-    // flatten order. Keep the selected prompt visible instead of snapping the
-    // virtualized list to its top (the old behavior users reported as
-    // "clicking a prompt with children jumps to the top").
+    // Selection should never move the viewport when the row is already visible.
+    // Snapping every selection to the top (align:"start") caused "click any prompt
+    // and the list scrolls to the top". Only scroll when the selected row is outside
+    // the visible range. The virtualizer computes a row's viewport position by
+    // current range: `targetIndex` between startIndex - endIndex is visible.
     if (targetIndex < 0) {
       return;
     }
-    rowVirtualizer.scrollToIndex(targetIndex, { align: "start" });
+    const range = rowVirtualizer.range;
+    if (range && targetIndex >= range.startIndex && targetIndex <= range.endIndex) {
+      return;
+    }
+    // "auto" moves it to the nearest edge, preserving visual continuity, instead of
+    // the harsh previous reflow-to-first-page/top-row effect the user reported.
+    rowVirtualizer.scrollToIndex(targetIndex, { align: "auto" });
   }, [promptOrderKey, rowVirtualizer, targetIndex]);
 
   return { scrollRef, treeItems, hierarchyMeta, rowVirtualizer };
