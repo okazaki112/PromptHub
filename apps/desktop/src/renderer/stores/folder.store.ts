@@ -10,6 +10,10 @@ import { useSettingsStore } from "./settings.store";
 
 interface FolderState {
   folders: Folder[];
+  // True once fetchFolders has resolved at least once. The relationship graph
+  // uses this to avoid painting every node with the neutral "no folder" tone on
+  // the startup frame where prompts arrive before folders (Promise.all race).
+  foldersLoaded: boolean;
   selectedFolderId: string | null;
   expandedIds: Set<string>;
   unlockedFolderIds: Set<string>;
@@ -34,6 +38,7 @@ interface FolderState {
 
 export const useFolderStore = create<FolderState>((set, get) => ({
   folders: [],
+  foldersLoaded: false,
   selectedFolderId: null,
   expandedIds: new Set(),
   unlockedFolderIds: new Set(),
@@ -43,8 +48,10 @@ export const useFolderStore = create<FolderState>((set, get) => ({
       // seedDatabase will be called in prompt.store, fetch directly here
       // seedDatabase 会在 prompt.store 中调用，这里直接获取
       const folders = await db.getAllFolders();
-      set({ folders });
+      set({ folders, foldersLoaded: true });
     } catch (error) {
+      // Leave foldersLoaded=false so the graph keeps showing its loading state
+      // instead of silently degrading every node to the neutral grey fallback.
       console.error("Failed to fetch folders:", error);
     }
   },

@@ -11,6 +11,7 @@ import {
   shouldShowNodeLabel,
   type PromptGraphNode,
 } from "../../../src/renderer/components/prompt/prompt-graph-layout";
+import { FOLDER_PALETTE } from "../../../src/renderer/components/prompt/prompt-graph-semantics";
 import { renderWithI18n } from "../../helpers/i18n";
 
 // react-force-graph-2d renders to a real <canvas> via an internal WebGL/2D
@@ -22,12 +23,34 @@ const createRelationMock = vi.hoisted(() =>
   vi.fn(async (_data: unknown) => ({} as never)),
 );
 
+// Controllable folder/settings store slices for colour + loading assertions.
+// Default foldersLoaded=true keeps the pre-existing render path identical so
+// the earlier cases are unaffected while the new colour cases pin real hex values.
+const folderState = vi.hoisted(() => ({
+  folders: [] as Array<Record<string, unknown>>,
+  foldersLoaded: true,
+}));
+const settingsState = vi.hoisted(() => ({
+  isDarkMode: false,
+  motionPreference: "full",
+}));
+
 // The view commits candidate links through the prompt store action; stub the
 // store so the component unit test can observe the commit without touching IPC.
 vi.mock("../../../src/renderer/stores/prompt.store", () => ({
   usePromptStore: vi.fn((selector: any) =>
     selector({ createRelation: createRelationMock }),
   ),
+}));
+
+// Folder store drives group colour (nodeColorMap) and the foldersLoaded gate.
+vi.mock("../../../src/renderer/stores/folder.store", () => ({
+  useFolderStore: vi.fn((selector: any) => selector(folderState)),
+}));
+
+// Settings store drives dark/light theme choice inside the graph.
+vi.mock("../../../src/renderer/stores/settings.store", () => ({
+  useSettingsStore: vi.fn((selector: any) => selector(settingsState)),
 }));
 
 vi.mock("react-force-graph-2d", () => ({
@@ -267,6 +290,13 @@ describe("prompt graph data model", () => {
 });
 
 describe("PromoptGraphView value tiers", () => {
+  beforeEach(() => {
+    folderState.folders = [];
+    folderState.foldersLoaded = true;
+    settingsState.isDarkMode = false;
+    settingsState.motionPreference = "full";
+  });
+
   async function renderGraph(
     prompts: Prompt[],
     relations: PromptRelation[] = [],
@@ -399,6 +429,53 @@ describe("PromoptGraphView value tiers", () => {
       isHierarchy: false,
     };
     expect(graphProps.current.linkDirectionalArrowLength(related)).toBe(0);
+  });
+
+  // REQ-GC-1: the selected prompt is a global selection that can end up OUTSIDE
+  // the visible node set (a tag filter drops it). Pre-fix the dimming branch keyed
+  // off activeNodeIds.size alone, so every surviving visible node matched the
+  // "!has" arm and the whole graph faded to the dimmed overlay with no bright node.
+  it("does not dim visible nodes when the selected prompt is filtered out of view", async () => {
+    const prompts = [
+      makeGraphPrompt("sel-a", { tags: ["keep"] }),
+      makeGraphPrompt("sel-b", { tags: ["drop"] }),
+    ];
+    await renderGraph(prompts, [], "sel-b");
+    fireEvent.click(screen.getByRole("button", { name: "#keep" }));
+
+    const selA = graphProps.current.graphData.nodes.find(
+      (n: { id: string }) => n.id === "sel-a",
+    );
+    expect(selA).toBeTruthy();
+    // sel-b (selected) is hidden, so sel-a must keep its real colour, not the overlay.
+    expect(graphProps.current.nodeColor(selA)).not.toBe(
+      "rgba(110, 118, 130, 0.22)",
+    );
+    expect(graphProps.current.nodeColor(selA)).toBe("#6f7682");
+  });
+
+  // REQ-GC-2: while folders are still loading, painting them all with the
+  // neutral "no folder" tone is misleading (it looks exactly like the bug).
+  it("shows a loading state instead of all-grey nodes while folders are not ready", async () => {
+    folderState.foldersLoaded = false;
+    await renderGraph([makeGraphPrompt("ld-a", { folderId: "f-1" })]);
+
+    expect(screen.getByTestId("prompt-graph-loading")).toBeInTheDocument();
+    expect(screen.queryByTestId("force-graph-mock")).not.toBeInTheDocument();
+  });
+
+  // REQ-GC-3: a folder whose parent reference is unresolvable must not collapse
+  // the whole subtree to the neutral grey; it keeps a stable palette hue.
+  it("keeps a stable palette colour for an orphaned subfolder", async () => {
+    folderState.folders = [
+      { id: "child-f", name: "Child", parentId: "ghost-parent", order: 0 },
+    ];
+    await renderGraph([makeGraphPrompt("orph-a", { folderId: "child-f" })]);
+
+    const node = graphProps.current.graphData.nodes[0];
+    const color = graphProps.current.nodeColor(node);
+    expect(color).not.toBe("#6f7682");
+    expect(FOLDER_PALETTE.light).toContain(color);
   });
 });
 

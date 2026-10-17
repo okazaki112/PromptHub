@@ -40,6 +40,7 @@ import {
   type HoverCardData,
 } from "./graph-overlays";
 import { GRAPH_THEME, ZOOM_STEP } from "./prompt-graph-theme";
+import { Spinner } from "../ui/Spinner";
 
 interface PromptGraphViewProps {
   prompts: Prompt[];
@@ -89,6 +90,14 @@ function buildFolderRootIndex(folders: Folder[]): Map<string, number> {
     rootOrderByFolder.set(rootId, index);
   });
   const folderById = new Map(folders.map((f) => [f.id, f]));
+  // Deterministic fallback slot for folders that never resolve to a registered
+  // root (e.g. an orphaned parent reference). Keeps an orphaned subtree on a
+  // stable palette hue instead of collapsing the whole branch to neutral grey.
+  const stableSlot = new Map<string, number>();
+  folders
+    .slice()
+    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0) || a.id.localeCompare(b.id))
+    .forEach((f, index) => stableSlot.set(f.id, index));
 
   const resolveRoot = (folderId: string): number => {
     const seen = new Set<string>();
@@ -110,7 +119,9 @@ function buildFolderRootIndex(folders: Folder[]): Map<string, number> {
       const found = order.indexOf(folderId);
       return found >= 0 ? found : -1;
     }
-    return rootOrderByFolder.get(current.id) ?? -1;
+    return (
+      rootOrderByFolder.get(current.id) ?? stableSlot.get(current.id) ?? -1
+    );
   };
 
   const map = new Map<string, number>();
@@ -134,6 +145,7 @@ export function PromptGraphView({
   const isDarkMode = useSettingsStore((s) => s.isDarkMode);
   const motionPreference = useSettingsStore((s) => s.motionPreference);
   const folders = useFolderStore((s) => s.folders);
+  const foldersLoaded = useFolderStore((s) => s.foldersLoaded);
   const createRelation = usePromptStore((s) => s.createRelation);
   const theme = isDarkMode ? GRAPH_THEME.dark : GRAPH_THEME.light;
   const colorMode: GraphColorMode = isDarkMode ? "dark" : "light";
@@ -195,9 +207,18 @@ export function PromptGraphView({
     [baseGraph.links],
   );
   const highlightedId = hoveredId ?? selectedPromptId;
+  const visibleIdSet = useMemo(
+    () => new Set(baseGraph.nodes.map((n) => n.id)),
+    [baseGraph.nodes],
+  );
+  // Dimming is only meaningful when the highlighted node is actually on screen.
+  // selectedPromptId is a global selection that can be filtered out / deleted /
+  // rebuilt mid-transition; without this gate every visible node falls into the
+  // "!activeNodeIds.has" arm and the whole graph fades to grey with no bright
+  // node — the reported "everything turns grey" bug.
   const activeNodeIds = useMemo(() => {
     const ids = new Set<string>();
-    if (!highlightedId) {
+    if (!highlightedId || !visibleIdSet.has(highlightedId)) {
       return ids;
     }
     ids.add(highlightedId);
@@ -205,7 +226,7 @@ export function PromptGraphView({
       ids.add(nid);
     }
     return ids;
-  }, [highlightedId, neighborIndex]);
+  }, [highlightedId, neighborIndex, visibleIdSet]);
 
   // Candidate edges are driven ONLY by committed focus (selected/focus node),
   // never by mouse hover. Hovering changed candidateLinks -> graphData -> the
@@ -218,10 +239,6 @@ export function PromptGraphView({
     if (focusId) ids.add(focusId);
     return [...ids];
   }, [selectedPromptId, focusId]);
-  const visibleIdSet = useMemo(
-    () => new Set(baseGraph.nodes.map((n) => n.id)),
-    [baseGraph.nodes],
-  );
   const candidateLinks = useMemo(
     () =>
       buildSuggestionLinks({
@@ -568,6 +585,25 @@ export function PromptGraphView({
       >
         <div className="flex h-full items-center justify-center px-6 text-sm text-muted-foreground">
           {t("prompt.graph.empty")}
+        </div>
+      </div>
+    );
+  }
+
+  // Folders feed the group-colour map. Rendering before they are ready would
+  // paint every node with the neutral "no folder" tone for one frame (the
+  // startup prompts/folders race) — show a loading state instead.
+  if (!foldersLoaded) {
+    return (
+      <div
+        className="flex h-full min-h-0 flex-col"
+        style={{ backgroundColor: theme.background }}
+      >
+        <div
+          className="flex h-full items-center justify-center"
+          data-testid="prompt-graph-loading"
+        >
+          <Spinner />
         </div>
       </div>
     );
