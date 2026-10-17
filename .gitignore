@@ -133,3 +133,5 @@ task-plan/build-log.txt
 # 本地迭代报告与任务计划（仅本地留存，不入库）
 doc/
 task-plan/
+
+.archify/
