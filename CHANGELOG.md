@@ -8,6 +8,8 @@
   - **Usage heatmap view**: a calendar surface for creation and activity density, with multi-select dates and a year navigator.
 - 🗓 **改版日期也算热度**：热力图纳入版本历史快照的日期，老 Prompt 今天改过就在今日亮起，不再把修订堆到创建日。
   - **Revisions light up their own day**: version history dates feed the heatmap instead of piling onto the creation date.
+- 🔥 **热度跟着备份走**：使用次数现在写进本地工作区文件，换机器、迁移数据目录或整目录恢复后热度不再从 0 重新开始，无需任何设置。
+  - **Usage heat travels with your files**: copy counts are stored alongside each prompt, so a new machine or a folder-based restore keeps the heatmap and graph sizing.
 
 ### 问题修复 / Fixes
 

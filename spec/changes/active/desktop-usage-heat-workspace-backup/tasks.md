@@ -6,7 +6,7 @@
 - [x] T4 DES-UH-002: `parsePromptFile` 改读 `normalizeUsageCount`
 - [x] T5 Web 端「桌面不持久化 usageCount」差异说明同步
 - [x] T6 定向测试 + typecheck + eslint + 文件行数门禁
-- [ ] T7 提交
+- [x] T7 提交（代码 `ff99d667`，文档与 CHANGELOG 随后一笔）
 
 ## Traceability
 
