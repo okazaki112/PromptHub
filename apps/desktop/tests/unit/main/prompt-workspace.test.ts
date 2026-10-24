@@ -330,6 +330,77 @@ Summarize the latest status.
     expect(promptDb.getById(prompt.id)?.folderId).toBeNull();
   });
 
+  it("keeps prompt usage heat in workspace files across export and import", () => {
+    const prompt = promptDb.create({
+      title: "Heat Prompt",
+      userPrompt: "Run me a few times",
+    });
+    promptDb.update(prompt.id, { usageCount: 7 });
+
+    syncPromptWorkspaceFromDatabase(promptDb, folderDb);
+
+    const exportedPromptPath = path.join(
+      getPromptsWorkspaceDir(),
+      "heat-prompt.md",
+    );
+    expect(fs.readFileSync(exportedPromptPath, "utf8")).toContain(
+      "usageCount: 7",
+    );
+
+    const restoredRawDb = new DatabaseAdapter(":memory:");
+    restoredRawDb.pragma("foreign_keys = ON");
+    restoredRawDb.exec(SCHEMA_TABLES);
+    restoredRawDb.exec(SCHEMA_INDEXES);
+    const restoredPromptDb = new PromptDB(restoredRawDb);
+    const restoredFolderDb = new FolderDB(restoredRawDb);
+
+    try {
+      const imported = importPromptWorkspaceIntoDatabase(
+        restoredPromptDb,
+        restoredFolderDb,
+      );
+
+      expect(imported.promptCount).toBe(1);
+      expect(restoredPromptDb.getAll()[0]?.usageCount).toBe(7);
+    } finally {
+      restoredRawDb.close();
+    }
+  });
+
+  it.each([
+    { label: "negative", frontmatter: "usageCount: -3", expected: 0 },
+    { label: "decimal", frontmatter: "usageCount: 2.7", expected: 2 },
+    { label: "string", frontmatter: 'usageCount: "seven"', expected: 0 },
+    { label: "null", frontmatter: "usageCount: null", expected: 0 },
+  ])(
+    "normalizes malformed usage heat ($label) to a safe counter on import",
+    ({ frontmatter, expected }) => {
+      writeLegacyPromptDir(
+        getPromptsWorkspaceDir(),
+        "heat-case__prompt_heat",
+        `---
+id: "prompt_heat"
+title: "Heat Case"
+promptType: "text"
+${frontmatter}
+createdAt: "2026-04-13T00:00:00.000Z"
+updatedAt: "2026-04-13T00:00:00.000Z"
+---
+<!-- PROMPTHUB:SYSTEM -->
+System body.
+
+<!-- PROMPTHUB:USER -->
+User body.
+`,
+      );
+
+      const imported = importPromptWorkspaceIntoDatabase(promptDb, folderDb);
+
+      expect(imported.promptCount).toBe(1);
+      expect(promptDb.getAll()[0]?.usageCount).toBe(expected);
+    },
+  );
+
   it("Q4: merges workspace-newer prompt into DB, then re-syncs to disk", () => {
     // Seed DB with older version.
     const prompt = promptDb.create({

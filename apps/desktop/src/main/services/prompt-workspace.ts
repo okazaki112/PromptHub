@@ -258,6 +258,7 @@ function promptFrontmatter(prompt: Prompt): Record<string, unknown> {
     isFavorite: prompt.isFavorite,
     isPinned: prompt.isPinned,
     currentVersion: prompt.currentVersion ?? prompt.version ?? 1,
+    usageCount: prompt.usageCount ?? 0,
     source: prompt.source ?? null,
     notes: prompt.notes ?? null,
     createdAt: prompt.createdAt,
@@ -613,6 +614,15 @@ function toIsoString(value: unknown, fallback: string): string {
   return fallback;
 }
 
+// Hand-edited prompt files can carry garbage here; the column is a counter.
+// 手工编辑的 prompt 文件可能写入非法值，而该列是计数。
+function normalizeUsageCount(value: unknown): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return 0;
+  }
+  return value > 0 ? Math.floor(value) : 0;
+}
+
 /**
  * Normalize a timestamp value to a numeric epoch (ms) for comparison.
  * DB rows store integer ms while typed as `string`; file metadata stores ISO.
@@ -672,7 +682,7 @@ function parsePromptFile(filePath: string): Prompt {
       typeof metadata.currentVersion === "number" ? metadata.currentVersion : 1,
     currentVersion:
       typeof metadata.currentVersion === "number" ? metadata.currentVersion : 1,
-    usageCount: 0,
+    usageCount: normalizeUsageCount(metadata.usageCount),
     source: typeof metadata.source === "string" ? metadata.source : null,
     notes: typeof metadata.notes === "string" ? metadata.notes : null,
     lastAiResponse: null,

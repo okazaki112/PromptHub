@@ -25,7 +25,8 @@ import { getPromptsDir } from '../runtime-paths.js';
  * 与桌面端的关键差异（本文件独有）：
  * 1. `ownerUserId` / `visibility` 写入 prompt frontmatter 和 `_folder.json`
  *    以保留多租户归属。
- * 2. `usageCount` / `lastAiResponse` 写入 prompt frontmatter（桌面端不持久化）。
+ * 2. `lastAiResponse` 写入 prompt frontmatter（桌面端不持久化）。
+ *    `usageCount` 两端都写入：热度随工作区文件走，谁的文件新谁说了算。
  * 3. 同步采用 sibling staging directory 重写后替换 live 目录；Web 服务进程
  *    独占数据目录，不需要桌面端 `.trash/`、同名冲突裁决、restore marker、
  *    四象限 bootstrap 等保护。
