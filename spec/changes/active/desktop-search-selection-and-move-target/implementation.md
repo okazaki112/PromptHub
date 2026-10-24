@@ -17,6 +17,8 @@
 | --- | --- | --- |
 | 回归用例（先红后绿） | `vitest run tests/unit/components/top-bar-prompt-search-refresh.test.tsx tests/integration/components/main-content-context-move.integration.test.tsx` | 修复前 2 failed；修复后 9 passed |
 | 关联用例 | `vitest run top-bar-agent-search + top-bar-prompt-search-refresh + main-content-context-move` | 3 files / 10 tests passed |
+| 集成回归 | `vitest run tests/integration/components` | 6 files / 41 tests passed |
+| 生产构建 | `pnpm build` | exit 0 |
 | 类型检查 | `pnpm --filter @prompthub/desktop exec tsc --noEmit` | exit 0 |
 | ESLint（改动文件） | `eslint ... --max-warnings 0` | exit 0 |
 | 文件行数门禁 | `node scripts/check-file-line-limits.mjs` | passed |
