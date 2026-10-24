@@ -1,5 +1,14 @@
 ## [Unreleased]
 
+## [0.6.6] - 2026-10-24
+
+### 问题修复 / Fixes
+
+- 🔍 **搜索后切换窗口不再跳回第一条**：搜索结果保持当前选中项，切到其他程序再切回来不会重置到第一条，Tab/Enter 的浏览位置也不会丢失。
+  - **Search selection survives window focus**: returning to the app no longer resets the highlighted search result to the first match.
+- 🌳 **搜索状态下仍可移动到任意节点**：右键「移动到节点」不再只列出搜索命中的 Prompt，未命中的目标节点同样可选，移动后按目标层级归位。
+  - **Move-to-node lists every prompt while searching**: non-matching nodes remain valid move targets instead of being hidden by the current search filter.
+
 ## [0.6.4] - 2026-10-03
 
 ### 问题修复 / Fixes
