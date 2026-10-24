@@ -23,6 +23,11 @@
 | ESLint（改动文件） | `eslint ... --max-warnings 0` | exit 0 |
 | 文件行数门禁 | `node scripts/check-file-line-limits.mjs` | passed |
 
+## Follow-up Records
+
+- CHANGELOG 补齐 `[0.6.5]`（图谱信息密度、批量恢复、背景图可恢复、大媒体校验溢出、父先子后恢复排序、选择性导出口径），并把 0.6.5 bump 之后落地的热力图与图谱/列表稳定性修复记入 `[0.6.6]`。
+- `pnpm verify:release:quick` 在第 6/18 步 `cli-test` 中断：`run.test.ts` 3 例 + `skill.test.ts` 2 例失败。在基线 `f509d54a`（本轮改动之前）单跑同两个文件得到**完全相同的 5 条失败用例名**，判定为本机既有失败，本轮 0 新增回归；因此 quick 门禁未转绿，余下 12 步未执行。
+
 ## Intentionally Skipped
 
 - 官网/多语言 README 未同步：本 fork 的 0.6.x 迭代沿用既有做法，官网与 README 仍指向已发布的上游稳定版 0.5.9；本次为本地版本号迭代，未生成发布标签与安装包。
