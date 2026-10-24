@@ -145,6 +145,7 @@ export function TopBar({
   const createMenuRef = useRef<HTMLDivElement>(null);
   const createMenuDropdownRef = useRef<HTMLDivElement>(null);
   const [currentResultIndex, setCurrentResultIndex] = useState(0);
+  const lastAutoSelectKeyRef = useRef<string | null>(null);
   const [createMenuPosition, setCreateMenuPosition] = useState({
     top: 0,
     right: 0,
@@ -420,9 +421,14 @@ export function TopBar({
     ],
   );
 
-  // 当搜索查询变化时重置索引。
-  // Prompt / Rules 继续自动定位首个结果，Skills 只更新结果计数，不强制改选中项。
+  // 仅在搜索词或视图真正变化时重置索引。
+  // 后台刷新会让结果数组产生新引用；把它当成搜索词变化会打断用户当前浏览的结果。
   useEffect(() => {
+    const selectionKey = `${isSkillView ? "skill" : "prompt"}:${searchQuery}`;
+    if (lastAutoSelectKeyRef.current === selectionKey) {
+      return;
+    }
+    lastAutoSelectKeyRef.current = selectionKey;
     setCurrentResultIndex(0);
     if (searchQuery.trim().length === 0) {
       return;
@@ -435,13 +441,7 @@ export function TopBar({
     if (promptSearchResults.length > 0) {
       selectPrompt(promptSearchResults[0].id);
     }
-  }, [
-    isProjectSkillView,
-    isSkillView,
-    promptSearchResults,
-    searchQuery,
-    selectPrompt,
-  ]);
+  }, [isSkillView, promptSearchResults, searchQuery, selectPrompt]);
 
   // 处理键盘事件
   const handleKeyDown = (e: React.KeyboardEvent) => {

@@ -352,6 +352,25 @@ export function usePromptWorkspaceDerived(
     params.setShowEnglish,
   );
   const folders = useFolderPresentation(params.folders, params.t);
+  // 移动候选沿用当前文件夹/收藏范围与私密文件夹边界，只忽略搜索、标签和类型筛选。
+  const movablePrompts = useMemo(
+    () =>
+      filterVisiblePrompts({
+        prompts: params.prompts,
+        selectedFolderId: params.selectedFolderId,
+        folders: params.folders,
+        unlockedFolderIds: params.unlockedFolderIds,
+        searchQuery: "",
+        filterTags: [],
+        promptTypeFilter: "all",
+      }),
+    [
+      params.folders,
+      params.prompts,
+      params.selectedFolderId,
+      params.unlockedFolderIds,
+    ],
+  );
   const highlightTerms = useMemo(
     () => getHighlightTerms(params.searchQuery),
     [params.searchQuery],
@@ -366,6 +385,7 @@ export function usePromptWorkspaceDerived(
     ...selection,
     ...folders,
     highlightTerms,
+    movablePrompts,
     selectedPromptIdSet,
   };
 }

@@ -466,6 +466,150 @@ describe("MainContent context move integration", () => {
   );
 
   it(
+    "keeps non-matching prompt nodes available as move targets while searching",
+    async () => {
+      const movePrompt = vi.fn().mockResolvedValue(undefined);
+      const sourcePrompt = createPrompt({
+        id: "prompt-source",
+        title: "Solo prompt",
+      });
+      const targetPrompt = createPrompt({
+        id: "prompt-target",
+        title: "Hidden target",
+      });
+
+      usePromptStoreMock.mockImplementation((selector) =>
+        selector({
+          prompts: [sourcePrompt, targetPrompt],
+          selectedId: sourcePrompt.id,
+          selectedIds: [sourcePrompt.id],
+          selectPrompt: vi.fn(),
+          setSelectedIds: vi.fn(),
+          createPrompt: vi.fn().mockResolvedValue(sourcePrompt),
+          toggleFavorite: vi.fn().mockResolvedValue(undefined),
+          togglePinned: vi.fn().mockResolvedValue(undefined),
+          deletePrompt: vi.fn().mockResolvedValue(undefined),
+          updatePrompt: vi.fn().mockResolvedValue(undefined),
+          movePrompt,
+          searchQuery: "solo",
+          filterTags: [],
+          sortBy: "updatedAt",
+          sortOrder: "desc",
+          viewMode: "card",
+          incrementUsageCount: vi.fn().mockResolvedValue(undefined),
+          promptTypeFilter: "all",
+          setPromptTypeFilter: vi.fn(),
+          setViewMode: vi.fn(),
+        }),
+      );
+      useFolderStoreMock.mockImplementation((selector) =>
+        selector({
+          selectedFolderId: null,
+          unlockedFolderIds: new Set<string>(),
+          folders: [],
+        }),
+      );
+
+      await act(async () => {
+        await renderWithI18n(<MainContent />, { language: "en" });
+      });
+
+      expect(screen.queryByText("Hidden target")).toBeNull();
+
+      fireEvent.contextMenu(screen.getAllByTestId("prompt-card-title")[0]);
+      const moveToNodeButton = await screen.findByRole("button", {
+        name: "Move to node",
+      });
+      fireEvent.mouseEnter(moveToNodeButton.parentElement as HTMLElement);
+
+      const targetButtons = await screen.findAllByRole("button", {
+        name: /Hidden target/,
+      });
+      fireEvent.click(targetButtons[targetButtons.length - 1]);
+
+      await waitFor(() => {
+        expect(movePrompt).toHaveBeenCalledWith(
+          "prompt-source",
+          "prompt-target",
+          0,
+        );
+      });
+    },
+    30000,
+  );
+
+  it(
+    "does not expose prompts from locked private folders as move targets",
+    async () => {
+      const sourcePrompt = createPrompt({
+        id: "prompt-source",
+        title: "Solo prompt",
+      });
+      const secretPrompt = createPrompt({
+        id: "prompt-secret",
+        title: "Secret prompt",
+        folderId: "folder-private",
+      });
+
+      usePromptStoreMock.mockImplementation((selector) =>
+        selector({
+          prompts: [sourcePrompt, secretPrompt],
+          selectedId: sourcePrompt.id,
+          selectedIds: [sourcePrompt.id],
+          selectPrompt: vi.fn(),
+          setSelectedIds: vi.fn(),
+          createPrompt: vi.fn().mockResolvedValue(sourcePrompt),
+          toggleFavorite: vi.fn().mockResolvedValue(undefined),
+          togglePinned: vi.fn().mockResolvedValue(undefined),
+          deletePrompt: vi.fn().mockResolvedValue(undefined),
+          updatePrompt: vi.fn().mockResolvedValue(undefined),
+          movePrompt: vi.fn().mockResolvedValue(undefined),
+          searchQuery: "",
+          filterTags: [],
+          sortBy: "updatedAt",
+          sortOrder: "desc",
+          viewMode: "card",
+          incrementUsageCount: vi.fn().mockResolvedValue(undefined),
+          promptTypeFilter: "all",
+          setPromptTypeFilter: vi.fn(),
+          setViewMode: vi.fn(),
+        }),
+      );
+      useFolderStoreMock.mockImplementation((selector) =>
+        selector({
+          selectedFolderId: null,
+          unlockedFolderIds: new Set<string>(),
+          folders: [
+            {
+              id: "folder-private",
+              name: "Private",
+              order: 0,
+              icon: "",
+              isPrivate: true,
+              createdAt: "",
+              updatedAt: "",
+            },
+          ],
+        }),
+      );
+
+      await act(async () => {
+        await renderWithI18n(<MainContent />, { language: "en" });
+      });
+
+      fireEvent.contextMenu(screen.getAllByTestId("prompt-card-title")[0]);
+      const moveToNodeButton = await screen.findByRole("button", {
+        name: "Move to node",
+      });
+      fireEvent.mouseEnter(moveToNodeButton.parentElement as HTMLElement);
+
+      await screen.findByRole("button", { name: /Root node/ });
+      expect(screen.queryByText("Secret prompt")).toBeNull();
+    },
+    30000,
+  );
+
+  it(
     "collapses all visible prompt tree nodes from the context menu",
     async () => {
       const parentPrompt = createPrompt({ id: "prompt-parent", title: "Parent Prompt" });

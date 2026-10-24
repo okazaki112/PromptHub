@@ -43,6 +43,7 @@ interface PromptWorkspaceMenuParams {
   handleSharePrompt: (prompt: Prompt) => Promise<void>;
   handleVersionHistory: (prompt: Prompt) => void;
   handleViewDetail: (prompt: Prompt) => void;
+  movablePrompts: Prompt[];
   prompts: Prompt[];
   setEditingPrompt: (prompt: Prompt) => void;
   setQuickRewritePrompt: (prompt: Prompt) => void;
@@ -51,7 +52,6 @@ interface PromptWorkspaceMenuParams {
   toggleFavorite: (id: string) => Promise<void>;
   togglePinned: (id: string) => Promise<void>;
   visibleHierarchyMeta: { childCountById: Map<string, number> };
-  visiblePrompts: Prompt[];
 }
 
 export function usePromptWorkspaceMenuItems(params: PromptWorkspaceMenuParams) {
@@ -228,7 +228,7 @@ function createPromptTreeItems(
   params: PromptWorkspaceMenuParams,
 ): ContextMenuItem[] {
   const descendantIds = getPromptDescendantIds(params.prompts, prompt.id);
-  const targets = flattenPromptTree(params.visiblePrompts, new Set(), {
+  const targets = flattenPromptTree(params.movablePrompts, new Set(), {
     siblingOrder: "input",
   }).filter(
     (node) =>

@@ -326,6 +326,7 @@ function useWorkspaceMenuItems(
     handleSharePrompt: action.handleSharePrompt,
     handleVersionHistory: action.handleVersionHistory,
     handleViewDetail: action.handleViewDetail,
+    movablePrompts: inputs.derived.movablePrompts,
     prompts: inputs.stores.promptData.prompts,
     setEditingPrompt: inputs.state.dialogs.setEditingPrompt,
     setQuickRewritePrompt: inputs.state.dialogs.setQuickRewritePrompt,
@@ -335,6 +336,5 @@ function useWorkspaceMenuItems(
     toggleFavorite: inputs.stores.promptActions.toggleFavorite,
     togglePinned: inputs.stores.promptActions.togglePinned,
     visibleHierarchyMeta: inputs.derived.visibleHierarchyMeta,
-    visiblePrompts: inputs.derived.visiblePrompts,
   });
 }
