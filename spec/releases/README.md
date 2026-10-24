@@ -16,9 +16,13 @@
 
 | Version        | Status         | Path                            | Updated    |
 | -------------- | -------------- | ------------------------------- | ---------- |
+| `0.6.6`        | published      | `spec/releases/0.6.6.md`        | 2026-10-24 |
+| `0.6.5`        | published      | `spec/releases/0.6.5.md`        | 2026-10-24 |
 | `0.5.9`        | stable record  | `spec/releases/0.5.9.md`        | 2026-07-14 |
 | `0.5.9-beta.2` | published beta | `spec/releases/0.5.9-beta.2.md` | 2026-07-10 |
 | `0.5.9-beta.1` | published beta | `spec/releases/0.5.9-beta.1.md` | 2026-07-10 |
+
+fork 自管版本线从 `0.6.0` 起使用 `fork-vX.Y.Z` 标签；`v*` 命名空间留给上游发布。
 
 ## Routing Rule
 

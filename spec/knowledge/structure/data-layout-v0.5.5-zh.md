@@ -108,6 +108,11 @@ version: 3
 # 你的 prompt 正文...
 ```
 
+实际写出的 frontmatter 还包含 `description`、`promptType`、`systemPromptEn`、`userPromptEn`、
+`folderId`、`parentId`、`order`、`images`、`videos`、`isFavorite`、`isPinned`、`currentVersion`、
+`usageCount`、`source`、`notes` 等键。其中 `usageCount` 自 `0.6.6` 起随文件持久化：早期版本写出的
+文件缺该键时按 0 处理，同 id 冲突由 `updatedAt` 新的一方整体胜出。
+
 ### 3.3 命名规则
 
 | 规则 | 策略 |

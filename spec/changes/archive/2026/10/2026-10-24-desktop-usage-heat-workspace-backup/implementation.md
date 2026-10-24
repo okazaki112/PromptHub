@@ -32,3 +32,7 @@
 
 - `lastAiResponse` 在桌面端仍不落盘（Web 端落盘），属同类两端分歧，本轮未处理。
 - 未跑 Electron 实机的换机/整目录恢复演练；工作区文件读写由真实临时目录 + 真实 SQLite 用例覆盖。
+
+## Publication
+
+随 `fork-v0.6.6` 于 2026-10-24 发布（Draft 出包后 promote 为 Latest），产物已按 `latest*.yml` 的 sha512 逐包校验。
