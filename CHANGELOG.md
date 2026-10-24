@@ -4,10 +4,6 @@
 
 ### 新功能 / Features
 
-- 🔥 **Prompt 使用热度热力图**：新增日历视图，一眼看出哪些日子写得多、哪些 Prompt 还在被用；支持 Ctrl/Shift 多选日期联动列表、年份导航，动效可关闭。
-  - **Usage heatmap view**: a calendar surface for creation and activity density, with multi-select dates and a year navigator.
-- 🗓 **改版日期也算热度**：热力图纳入版本历史快照的日期，老 Prompt 今天改过就在今日亮起，不再把修订堆到创建日。
-  - **Revisions light up their own day**: version history dates feed the heatmap instead of piling onto the creation date.
 - 🔥 **热度跟着备份走**：使用次数现在写进本地工作区文件，换机器、迁移数据目录或整目录恢复后热度不再从 0 重新开始，无需任何设置。
   - **Usage heat travels with your files**: copy counts are stored alongside each prompt, so a new machine or a folder-based restore keeps the heatmap and graph sizing.
 
@@ -17,21 +13,17 @@
   - **Search selection survives window focus**: returning to the app no longer resets the highlighted search result to the first match.
 - 🌳 **搜索状态下仍可移动到任意节点**：右键「移动到节点」不再只列出搜索命中的 Prompt，未命中的目标节点同样可选，移动后按目标层级归位。
   - **Move-to-node lists every prompt while searching**: non-matching nodes remain valid move targets instead of being hidden by the current search filter.
-- 🕸 **关系图谱节点不再抖动**：鼠标移动不再触发整图重排，节点能稳定点中，拖动定位也不会被弹回。
-  - **Graph nodes stay put**: hovering no longer re-runs the layout, so nodes are clickable and drags hold.
-- 🎨 **图谱开局不再一片灰**：文件夹信息加载完成前显示加载态，节点颜色与所属文件夹一致，散架子文件夹也有稳定配色。
-  - **Graph colors are correct from the first frame**: node fills no longer fall back to grey while folders are still loading.
-- 📋 **点击 Prompt 不再跳回列表顶部**：选中项本来就在视野内就保持不动，只有超出视野才就近滚动。
-  - **Clicking a prompt keeps your place**: the card list only scrolls when the selected row is actually off-screen.
-- 🖼 **Windows 安装包的图标不再丢失**：签名工具缓存缺省时自动从镜像补取，安装后程序图标与版本信息不再被静默跳过。
-  - **Windows installer icons stick**: a missing tool cache now self-heals instead of silently shipping the default icon.
 
-## [0.6.5] - 2026-10-17
+## [0.6.5] - 2026-10-18
 
 ### 新功能 / Features
 
 - 🕸 **关系图谱看得懂了**：节点底色代表所属文件夹、大小代表使用热度，关系按类型分色并带方向；选中节点才浮现「可能相关」的候选虚线，点一下即建立真实关联；再次点击同一节点进入邻域聚焦，可按标签/根文件夹筛选，并提示尚未关联的 Prompt 数量。
   - **The relationship graph earns its keep**: folder-colored nodes, usage-sized dots, per-relation styling, on-demand candidate links you can commit with one click, focus mode and filters.
+- 🔥 **Prompt 使用热度热力图**：新增日历视图，一眼看出哪些日子写得多、哪些 Prompt 还在被用；支持 Ctrl/Shift 多选日期联动列表、年份导航，动效可关闭。
+  - **Usage heatmap view**: a calendar surface for creation and activity density, with multi-select dates and a year navigator.
+- 🗓 **改版日期也算热度**：热力图纳入版本历史快照的日期，老 Prompt 今天改过就在今日亮起，不再把修订堆到创建日。
+  - **Revisions light up their own day**: version history dates feed the heatmap instead of piling onto the creation date.
 - 📦 **选择性导出默认带上版本历史**：导出时不必再手动勾选「版本历史」，与全量备份口径一致。
   - **Version history is exported by default**: selective export now matches full-backup behavior.
 - 🖼 **背景图与媒体分开导出**：「媒体」只打包被 Prompt 真正引用的图片，桌面背景图作为独立开关，备份包不再夹带换背景的遗留文件。
@@ -39,12 +31,20 @@
 
 ### 问题修复 / Fixes
 
+- 🕸 **关系图谱节点不再抖动**：鼠标移动不再触发整图重排，节点能稳定点中，拖动定位也不会被弹回。
+  - **Graph nodes stay put**: hovering no longer re-runs the layout, so nodes are clickable and drags hold.
+- 🎨 **图谱开局不再一片灰**：文件夹信息加载完成前显示加载态，节点颜色与所属文件夹一致，散架子文件夹也有稳定配色。
+  - **Graph colors are correct from the first frame**: node fills no longer fall back to grey while folders are still loading.
+- 📋 **点击 Prompt 不再跳回列表顶部**：选中项本来就在视野内就保持不动，只有超出视野才就近滚动；手风琴折叠其他分支后，当前选中的 Prompt 仍留在视野里。
+  - **Clicking a prompt keeps your place**: the card list only scrolls when the selected row is off-screen, and collapsing sibling branches no longer hides the selection.
 - 💾 **备份真的带得上背景图**：背景图本体进备份包，换设备或重装后恢复即生效；引用还在但文件缺失时在设置页明确提示，不再无声失效。
   - **Wallpapers survive restore**: the image file itself is packed into backups, and a missing file is now stated instead of silently ignored.
 - 🧱 **大图片/视频恢复失败已修复**：超过约 3.5MB 的媒体此前在任何机器上都写不回去，校验环节崩溃被静默吞掉；现在既能正常恢复，也会如实报错。
   - **Large media restores again**: multi-megabyte images and videos no longer fail silently during restore.
 - 🌲 **恢复不再报「引用关系不完整」**：Prompt 按父先子后入库，子项排在父项之前导致的整轮导入失败被消除。
   - **Restore order fixed**: prompts insert parent-first, so a valid backup is no longer rejected as incomplete.
+- 🖼 **Windows 安装包的图标不再丢失**：签名工具缓存缺省时自动从镜像补取，安装后程序图标与版本信息不再被静默跳过。
+  - **Windows installer icons stick**: a missing tool cache now self-heals instead of silently shipping the default icon.
 
 ### 性能 / Improvements
 
